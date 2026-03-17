@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
 }
 
-git pull origin $BaseBranch
+git pull --ff-only origin $BaseBranch
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
 }
