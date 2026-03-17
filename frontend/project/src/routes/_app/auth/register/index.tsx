@@ -17,6 +17,8 @@ function RouteComponent() {
     // Get form data using native FormData
     const data = Object.fromEntries(new FormData(e.currentTarget));
 
+    console.log(data);
+
     setIsLoading(true);
     // Add your registration logic here
   };
