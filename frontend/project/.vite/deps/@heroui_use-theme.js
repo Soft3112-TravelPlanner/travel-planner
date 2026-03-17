@@ -1,0 +1,44 @@
+import { r as __toESM, t as require_react } from "./react-TUYU05Ph.js";
+//#region node_modules/@heroui/use-theme/dist/index.mjs
+var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
+var ThemeProps = {
+	KEY: "heroui-theme",
+	LIGHT: "light",
+	DARK: "dark",
+	SYSTEM: "system"
+};
+function useTheme(defaultTheme = ThemeProps.SYSTEM) {
+	const MEDIA = "(prefers-color-scheme: dark)";
+	const [theme, setThemeState] = (0, import_react.useState)(() => {
+		var _a;
+		const storedTheme = localStorage.getItem(ThemeProps.KEY);
+		if (storedTheme) return storedTheme;
+		if (defaultTheme === ThemeProps.SYSTEM) return ((_a = window.matchMedia) == null ? void 0 : _a.call(window, MEDIA).matches) ? ThemeProps.DARK : ThemeProps.LIGHT;
+		return defaultTheme;
+	});
+	const setTheme = (0, import_react.useCallback)((newTheme) => {
+		var _a;
+		const targetTheme = newTheme === ThemeProps.SYSTEM ? ((_a = window.matchMedia) == null ? void 0 : _a.call(window, MEDIA).matches) ? ThemeProps.DARK : ThemeProps.LIGHT : newTheme;
+		localStorage.setItem(ThemeProps.KEY, newTheme);
+		document.documentElement.classList.remove(ThemeProps.LIGHT, ThemeProps.DARK, ThemeProps.SYSTEM);
+		document.documentElement.classList.add(targetTheme);
+		setThemeState(newTheme);
+	}, [theme]);
+	const handleMediaQuery = (0, import_react.useCallback)((e) => {
+		if (defaultTheme === ThemeProps.SYSTEM) setTheme(e.matches ? ThemeProps.DARK : ThemeProps.LIGHT);
+	}, [setTheme]);
+	(0, import_react.useEffect)(() => setTheme(theme), [theme, setTheme]);
+	(0, import_react.useEffect)(() => {
+		const media = window.matchMedia(MEDIA);
+		media.addEventListener("change", handleMediaQuery);
+		return () => media.removeEventListener("change", handleMediaQuery);
+	}, [handleMediaQuery]);
+	return {
+		theme,
+		setTheme
+	};
+}
+//#endregion
+export { ThemeProps, useTheme };
+
+//# sourceMappingURL=@heroui_use-theme.js.map
