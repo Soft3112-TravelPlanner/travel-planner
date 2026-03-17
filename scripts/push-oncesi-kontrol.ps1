@@ -24,5 +24,5 @@ if ($currentBranch -notmatch $branchPattern) {
   exit 1
 }
 
-& powershell -ExecutionPolicy Bypass -File (Join-Path $repoRoot "scripts" "depoyu-dogrula.ps1")
+& powershell -ExecutionPolicy Bypass -File (Join-Path (Join-Path $repoRoot "scripts") "depoyu-dogrula.ps1")
 exit $LASTEXITCODE
