@@ -1,0 +1,13 @@
+{
+  "framework": "react",
+  "projectName": " tailwindmantinetest",
+  "mode": "file-router",
+  "typescript": true,
+  "tailwind": true,
+  "packageManager": "npm",
+  "toolchain": "none",
+  "variableValues": {},
+  "git": true,
+  "version": 1,
+  "existingAddOns": []
+}
