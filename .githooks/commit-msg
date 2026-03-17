@@ -1,0 +1,3 @@
+#!/bin/sh
+# Git bu dosyayi calistirir. Commit mesaji kontrolu PowerShell scriptindedir.
+powershell.exe -ExecutionPolicy Bypass -File ".\scripts\commit-mesaji-kontrol.ps1" "$1"
