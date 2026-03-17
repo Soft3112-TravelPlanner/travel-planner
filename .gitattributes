@@ -1,0 +1,5 @@
+# Tum metin dosyalari icin LF satir sonu standardini zorla
+* text=auto eol=lf
+
+# Windows batch ve PowerShell dosyalari CRLF olmadan da calisir,
+# ancak tutarlilik icin LF kullanilir
