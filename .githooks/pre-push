@@ -1,0 +1,4 @@
+#!/bin/sh
+# Git bu dosyayi calistirir. Asil kontrol PowerShell scriptindedir.
+REPO_ROOT=$(git rev-parse --show-toplevel)
+powershell.exe -ExecutionPolicy Bypass -File "$REPO_ROOT/scripts/push-oncesi-kontrol.ps1"
