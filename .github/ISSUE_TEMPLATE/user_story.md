@@ -1,7 +1,7 @@
 ---
 name: User story
 about: Kullanici hikayesi yazmak icin bu sablonu kullan
-title: "feature: kullanici hikayesi basligi"
+title: "feat: kullanici hikayesi basligi"
 labels: feature
 assignees: ""
 ---
