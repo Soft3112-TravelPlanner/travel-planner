@@ -37,7 +37,7 @@ if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
 }
 
-$sensitiveFiles = git diff --cached --name-only | Where-Object { $_ -match '(\.env$|\.env\.|credentials|secrets|private_key)' }
+$sensitiveFiles = git diff --cached --name-only | Where-Object { $_ -match '(\.env$|\.env\.(?!example$|sample$)|credentials|secrets|private_key)' }
 if ($sensitiveFiles) {
   Write-Host ""
   Write-Host "UYARI: Hassas dosya commit etmeye calisiyorsunuz:" -ForegroundColor Red
