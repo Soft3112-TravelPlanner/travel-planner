@@ -1,3 +1,5 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+param()
 $ErrorActionPreference = "Stop"
 Write-Host "Proje guncelleniyor..." -ForegroundColor Cyan
 

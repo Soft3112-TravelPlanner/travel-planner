@@ -1,3 +1,4 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '', Justification='Interaktif terminal scripti - renkli cikti kasitlidir')]
 param(
   [Parameter(Mandatory = $true)]
   [string]$CommitMessageFile

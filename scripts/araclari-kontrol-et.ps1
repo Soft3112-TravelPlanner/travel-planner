@@ -1,3 +1,5 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+param()
 $ErrorActionPreference = "Stop"
 
 $requiredCommands = @(
