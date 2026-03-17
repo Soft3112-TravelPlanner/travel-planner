@@ -4,7 +4,8 @@ param()
 $ErrorActionPreference = "Stop"
 $repoRoot = git rev-parse --show-toplevel
 $currentBranch = git rev-parse --abbrev-ref HEAD
-$branchPattern = '^(feature|fix|docs|chore|ci|test|refactor|style)\/[a-z0-9]+(?:-[a-z0-9]+)*$'
+$branchTypes = @('feature', 'fix', 'docs', 'chore', 'ci', 'test', 'refactor', 'style')
+$branchPattern = '^(' + ($branchTypes -join '|') + ')\/[a-z0-9]+(?:-[a-z0-9]+)*$'
 
 if (-not $repoRoot) {
   Write-Error "Depo kok dizini belirlenemedi."
