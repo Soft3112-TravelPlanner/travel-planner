@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppProfileIndexRouteImport } from './routes/_app/profile/index'
 import { Route as AppAuthRegisterIndexRouteImport } from './routes/_app/auth/register/index'
+import { Route as AppAuthLogoutIndexRouteImport } from './routes/_app/auth/logout/index'
 import { Route as AppAuthLoginIndexRouteImport } from './routes/_app/auth/login/index'
 
 const AppRoute = AppRouteImport.update({
@@ -23,9 +25,19 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProfileIndexRoute = AppProfileIndexRouteImport.update({
+  id: '/profile/',
+  path: '/profile/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAuthRegisterIndexRoute = AppAuthRegisterIndexRouteImport.update({
   id: '/auth/register/',
   path: '/auth/register/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuthLogoutIndexRoute = AppAuthLogoutIndexRouteImport.update({
+  id: '/auth/logout/',
+  path: '/auth/logout/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAuthLoginIndexRoute = AppAuthLoginIndexRouteImport.update({
@@ -36,31 +48,44 @@ const AppAuthLoginIndexRoute = AppAuthLoginIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/profile/': typeof AppProfileIndexRoute
   '/auth/login/': typeof AppAuthLoginIndexRoute
+  '/auth/logout/': typeof AppAuthLogoutIndexRoute
   '/auth/register/': typeof AppAuthRegisterIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/profile': typeof AppProfileIndexRoute
   '/auth/login': typeof AppAuthLoginIndexRoute
+  '/auth/logout': typeof AppAuthLogoutIndexRoute
   '/auth/register': typeof AppAuthRegisterIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/profile/': typeof AppProfileIndexRoute
   '/_app/auth/login/': typeof AppAuthLoginIndexRoute
+  '/_app/auth/logout/': typeof AppAuthLogoutIndexRoute
   '/_app/auth/register/': typeof AppAuthRegisterIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth/login/' | '/auth/register/'
+  fullPaths:
+    | '/'
+    | '/profile/'
+    | '/auth/login/'
+    | '/auth/logout/'
+    | '/auth/register/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth/login' | '/auth/register'
+  to: '/' | '/profile' | '/auth/login' | '/auth/logout' | '/auth/register'
   id:
     | '__root__'
     | '/_app'
     | '/_app/'
+    | '/_app/profile/'
     | '/_app/auth/login/'
+    | '/_app/auth/logout/'
     | '/_app/auth/register/'
   fileRoutesById: FileRoutesById
 }
@@ -84,11 +109,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/profile/': {
+      id: '/_app/profile/'
+      path: '/profile'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof AppProfileIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/auth/register/': {
       id: '/_app/auth/register/'
       path: '/auth/register'
       fullPath: '/auth/register/'
       preLoaderRoute: typeof AppAuthRegisterIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/auth/logout/': {
+      id: '/_app/auth/logout/'
+      path: '/auth/logout'
+      fullPath: '/auth/logout/'
+      preLoaderRoute: typeof AppAuthLogoutIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/auth/login/': {
@@ -103,13 +142,17 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppProfileIndexRoute: typeof AppProfileIndexRoute
   AppAuthLoginIndexRoute: typeof AppAuthLoginIndexRoute
+  AppAuthLogoutIndexRoute: typeof AppAuthLogoutIndexRoute
   AppAuthRegisterIndexRoute: typeof AppAuthRegisterIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppProfileIndexRoute: AppProfileIndexRoute,
   AppAuthLoginIndexRoute: AppAuthLoginIndexRoute,
+  AppAuthLogoutIndexRoute: AppAuthLogoutIndexRoute,
   AppAuthRegisterIndexRoute: AppAuthRegisterIndexRoute,
 }
 
