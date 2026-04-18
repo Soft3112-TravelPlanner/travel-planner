@@ -18,6 +18,9 @@ function RouteComponent() {
           <Button className="font-bold" as={Link} to="/auth/register">
             Register
           </Button>
+          <Button className="font-bold" as={Link} to="/search">
+            Search
+          </Button>
         </div>
         <Outlet />
       </div>

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSearchIndexRouteImport } from './routes/_app/search/index'
 import { Route as AppAuthRegisterIndexRouteImport } from './routes/_app/auth/register/index'
 import { Route as AppAuthLoginIndexRouteImport } from './routes/_app/auth/login/index'
 
@@ -21,6 +22,11 @@ const AppRoute = AppRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSearchIndexRoute = AppSearchIndexRouteImport.update({
+  id: '/search/',
+  path: '/search/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAuthRegisterIndexRoute = AppAuthRegisterIndexRouteImport.update({
@@ -36,11 +42,13 @@ const AppAuthLoginIndexRoute = AppAuthLoginIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/search/': typeof AppSearchIndexRoute
   '/auth/login/': typeof AppAuthLoginIndexRoute
   '/auth/register/': typeof AppAuthRegisterIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/search': typeof AppSearchIndexRoute
   '/auth/login': typeof AppAuthLoginIndexRoute
   '/auth/register': typeof AppAuthRegisterIndexRoute
 }
@@ -48,18 +56,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/search/': typeof AppSearchIndexRoute
   '/_app/auth/login/': typeof AppAuthLoginIndexRoute
   '/_app/auth/register/': typeof AppAuthRegisterIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth/login/' | '/auth/register/'
+  fullPaths: '/' | '/search/' | '/auth/login/' | '/auth/register/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth/login' | '/auth/register'
+  to: '/' | '/search' | '/auth/login' | '/auth/register'
   id:
     | '__root__'
     | '/_app'
     | '/_app/'
+    | '/_app/search/'
     | '/_app/auth/login/'
     | '/_app/auth/register/'
   fileRoutesById: FileRoutesById
@@ -84,6 +94,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/search/': {
+      id: '/_app/search/'
+      path: '/search'
+      fullPath: '/search/'
+      preLoaderRoute: typeof AppSearchIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/auth/register/': {
       id: '/_app/auth/register/'
       path: '/auth/register'
@@ -103,12 +120,14 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppSearchIndexRoute: typeof AppSearchIndexRoute
   AppAuthLoginIndexRoute: typeof AppAuthLoginIndexRoute
   AppAuthRegisterIndexRoute: typeof AppAuthRegisterIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppSearchIndexRoute: AppSearchIndexRoute,
   AppAuthLoginIndexRoute: AppAuthLoginIndexRoute,
   AppAuthRegisterIndexRoute: AppAuthRegisterIndexRoute,
 }
