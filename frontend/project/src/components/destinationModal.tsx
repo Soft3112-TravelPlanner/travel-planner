@@ -19,15 +19,17 @@ import {
   IoFlagOutline,
   IoStar,
   IoMapOutline,
+  IoWalletOutline, // Bütçe ikonu eklendi
 } from "react-icons/io5";
 
 // Leaflet bileşenleri
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 
-// Tip tanımı (Kendi interface yoluna göre güncelle)
+// Tip tanımı
 import type { Destination } from "@/interfaces";
-// 1. Leaflet İkon Fix: Marker'ın görünmemesi sorununu çözer
+
+// 1. Leaflet İkon Fix
 const customIcon = new L.Icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl:
@@ -37,11 +39,16 @@ const customIcon = new L.Icon({
   iconAnchor: [12, 41],
 });
 
-// 2. Yardımcı Bileşen: Koordinat değişince haritayı oraya kaydırır
+// 2. Yardımcı Bileşen: Koordinat değişince haritayı kaydırır ve boyutunu düzeltir
 function ChangeView({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
     map.setView(center, 13);
+    // Modal açılış animasyonu haritayı bozmasın diye yeniden boyutlandırma tetikleyicisi
+    const timeout = setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timeout);
   }, [center, map]);
   return null;
 }
@@ -104,13 +111,26 @@ export const DestinationModal = ({
         base: "dark:bg-[#121212] bg-white",
         header: "border-b-[1px] border-divider",
         footer: "border-t-[1px] border-divider",
+        closeButton: "hover:bg-default-200 z-50", // Çarpı butonu üstte kalsın diye
       }}
     >
       <ModalContent>
         {(onClose) => (
           <>
-            <ModalHeader className="flex flex-col gap-1">
-              <h2 className="text-2xl font-bold">{destination.name}</h2>
+            {/* Header Kısmı Güncellendi (Bütçe Eklendi) */}
+            <ModalHeader className="flex flex-col gap-1 pr-12">
+              <div className="flex justify-between items-center w-full">
+                <h2 className="text-2xl font-bold">{destination.name}</h2>
+                <Chip
+                  color="success"
+                  variant="flat"
+                  size="md"
+                  className="font-bold tracking-wide"
+                  startContent={<IoWalletOutline size={16} />}
+                >
+                  Est. ${destination.estimatedBudget}
+                </Chip>
+              </div>
               <div className="flex items-center gap-1 text-default-500 font-normal text-sm">
                 <div className="text-primary">
                   <IoLocationOutline size={18} />
@@ -234,8 +254,9 @@ export const DestinationModal = ({
                 color="primary"
                 variant="shadow"
                 onPress={() =>
+                  // Google Maps Yol Tarifi linki düzeltildi
                   window.open(
-                    `https://www.google.com/maps?q=${destination.coordinates.lat},${destination.coordinates.lng}`,
+                    `https://www.google.com/maps/dir/?api=1&destination=${destination.coordinates.lat},${destination.coordinates.lng}`,
                     "_blank",
                   )
                 }

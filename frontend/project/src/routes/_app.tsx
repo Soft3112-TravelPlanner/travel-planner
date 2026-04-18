@@ -11,7 +11,7 @@ function RouteComponent() {
   return (
     <HeroUIProvider>
       <div className="min-h-screen h-0 flex flex-col">
-        <div className=" h-20 bg-foreground-100 flex items-center justify-center gap-4">
+        <div className=" min-h-20 bg-foreground-100 flex items-center justify-center gap-4">
           <Button className="font-bold" as={Link} to="/auth/login">
             Login
           </Button>

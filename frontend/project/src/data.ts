@@ -43,6 +43,7 @@ export const destinations: Destination[] = [
         specialtyDish: "Grilled Meatballs",
       },
     ],
+    estimatedBudget: 150,
   },
   {
     id: "2",
@@ -76,6 +77,7 @@ export const destinations: Destination[] = [
         specialtyDish: "Lasagna",
       },
     ],
+    estimatedBudget: 1500,
   },
   {
     id: "3",
@@ -109,5 +111,6 @@ export const destinations: Destination[] = [
         specialtyDish: "Tonkotsu Ramen",
       },
     ],
+    estimatedBudget: 15000,
   },
 ];

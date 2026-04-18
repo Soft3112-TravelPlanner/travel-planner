@@ -9,9 +9,11 @@ import {
   Button,
   Chip,
   useDisclosure,
+  Slider,
+  NumberInput,
 } from "@heroui/react";
 
-// React Icons importları (Ionicons 5 setini kullandım)
+// React Icons
 import { IoSearchOutline, IoLocationOutline, IoStar } from "react-icons/io5";
 import { destinations } from "@/data";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -26,6 +28,9 @@ function SearchComponent() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQuery = useDebounce(searchQuery, 500);
 
+  // Bütçe Aralığı State'i: [minValue, maxValue]
+  const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 5000]);
+
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
 
@@ -34,21 +39,43 @@ function SearchComponent() {
     onOpen();
   };
 
-  const filteredDestinations = useMemo(() => {
-    if (!debouncedQuery.trim()) return destinations;
+  // Input'lara elle değer girildiğinde state'i güncelleyen fonksiyonlar
+  const handleMinInputChange = (value: number) => {
+    const num = Number(value);
+    if (!isNaN(num)) setBudgetRange([num, budgetRange[1]]);
+  };
 
-    const lowerQuery = debouncedQuery.toLowerCase();
-    return destinations.filter(
+  const handleMaxInputChange = (value: number) => {
+    const num = Number(value);
+    if (!isNaN(num)) setBudgetRange([budgetRange[0], num]);
+  };
+
+  const filteredDestinations = useMemo(() => {
+    let result = destinations;
+
+    // 1. İsim / Şehir / Ülke Araması
+    if (debouncedQuery.trim()) {
+      const lowerQuery = debouncedQuery.toLowerCase();
+      result = result.filter(
+        (dest) =>
+          dest.name.toLowerCase().includes(lowerQuery) ||
+          dest.city.toLowerCase().includes(lowerQuery) ||
+          dest.country.toLowerCase().includes(lowerQuery),
+      );
+    }
+
+    // 2. Bütçe Aralığı Filtresi (Min ve Max aralığında olanları getir)
+    result = result.filter(
       (dest) =>
-        dest.name.toLowerCase().includes(lowerQuery) ||
-        dest.city.toLowerCase().includes(lowerQuery) ||
-        dest.country.toLowerCase().includes(lowerQuery),
+        dest.estimatedBudget >= budgetRange[0] &&
+        dest.estimatedBudget <= budgetRange[1],
     );
-  }, [debouncedQuery]);
+
+    return result;
+  }, [debouncedQuery, budgetRange]);
 
   return (
     <>
-      {" "}
       <div className="flex-1 flex flex-col gap-8 p-6 max-w-7xl mx-auto w-full">
         {/* Search Header */}
         <section className="flex flex-col gap-4 items-center text-center mt-8">
@@ -56,10 +83,11 @@ function SearchComponent() {
             Explore the World
           </h1>
           <p className="text-default-500 max-w-lg">
-            Find the best landmarks and restaurants for your next trip.
+            Find the best landmarks and restaurants matching your budget.
           </p>
 
-          <div className="w-full max-w-2xl mt-4">
+          <div className="w-full max-w-2xl mt-4 flex flex-col gap-6 bg-default-50/50 p-6 rounded-3xl border border-divider shadow-sm">
+            {/* Arama Inputu */}
             <Input
               value={searchQuery}
               onValueChange={setSearchQuery}
@@ -74,9 +102,61 @@ function SearchComponent() {
               }
               classNames={{
                 inputWrapper:
-                  "shadow-sm bg-default-100 hover:bg-default-200 focus-within:!bg-default-100 transition-background",
+                  "shadow-sm bg-background hover:bg-default-200 focus-within:!bg-default-100 transition-background border border-divider",
               }}
             />
+
+            {/* Çift Yönlü Bütçe Filtresi (Slider + Inputs) */}
+            <div className="flex flex-col gap-3 w-full px-1">
+              <span className="text-sm font-semibold text-default-600 text-left">
+                Budget Range
+              </span>
+              <div className="flex items-center gap-4">
+                {/* Min Değer Inputu */}
+                <NumberInput
+                  value={budgetRange[0]}
+                  onValueChange={handleMinInputChange}
+                  size="sm"
+                  minValue={0}
+                  maxValue={50000}
+                  variant="faded"
+                  startContent={<span className="text-default-400">$</span>}
+                  className="w-24"
+                  hideStepper
+                  formatOptions={{
+                    maximumFractionDigits: 0,
+                  }}
+                />
+
+                {/* Range Slider */}
+                <Slider
+                  step={50}
+                  minValue={0}
+                  maxValue={50000}
+                  value={budgetRange}
+                  onChange={(v) => setBudgetRange(v as [number, number])}
+                  className="flex-1"
+                  color="primary"
+                  disableThumbScale={false}
+                />
+
+                {/* Max Değer Inputu */}
+                <NumberInput
+                  value={budgetRange[1]}
+                  minValue={0}
+                  maxValue={50000}
+                  onValueChange={handleMaxInputChange}
+                  size="sm"
+                  variant="faded"
+                  startContent={<span className="text-default-400">$</span>}
+                  className="w-24"
+                  hideStepper
+                  formatOptions={{
+                    maximumFractionDigits: 0,
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </section>
 
@@ -99,14 +179,25 @@ function SearchComponent() {
                 <Card
                   key={dest.id}
                   isPressable
-                  className=" group border-none bg-background/60 dark:bg-default-100/50"
-                  onPress={() => handleOpenModal(dest)} // Karta basınca modalı aç
+                  className="group border-none bg-background/60 dark:bg-default-100/50 relative"
+                  onPress={() => handleOpenModal(dest)}
                 >
-                  <CardHeader className="p-0  overflow-hidden">
+                  {/* BÜTÇE ÇIKARTMASI */}
+                  <div className="absolute top-3 right-3 z-20">
+                    <Chip
+                      color="success"
+                      variant="shadow"
+                      size="sm"
+                      className="font-bold tracking-wide"
+                    >
+                      ${dest.estimatedBudget}
+                    </Chip>
+                  </div>
+
+                  <CardHeader className="p-0 overflow-hidden">
                     <Image
                       alt={dest.name}
                       classNames={{
-                        // Wrapper'ın genişliğini ve resmin kapsama şeklini garantiye alıyoruz
                         wrapper: "w-full !max-w-full",
                         img: "object-cover h-[240px] w-full",
                       }}
@@ -130,7 +221,9 @@ function SearchComponent() {
                       </div>
                       <div className="flex items-center gap-1 bg-warning-50 text-warning-600 px-2 py-1 rounded-full">
                         <IoStar size={14} />
-                        <span className="text-xs font-bold">4.8</span>
+                        <span className="text-xs font-bold">
+                          {dest.averageRating || "4.8"}
+                        </span>
                       </div>
                     </div>
 
@@ -153,14 +246,14 @@ function SearchComponent() {
           ) : (
             <div className="flex flex-col items-center justify-center py-24 opacity-60">
               <IoSearchOutline size={48} className="mb-4 text-default-300" />
-
               <p className="text-lg">
-                We couldn't find what you're looking for.
+                We couldn't find what you're looking for within this budget.
               </p>
             </div>
           )}
         </section>
       </div>
+
       <DestinationModal
         destination={selectedDest}
         isOpen={isOpen}
