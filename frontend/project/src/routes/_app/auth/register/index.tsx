@@ -1,3 +1,5 @@
+import type { RegisterType } from "@/interfaces";
+import { signUp } from "@/mutations";
 import { Card, CardHeader, CardBody, Form, Button, Input } from "@heroui/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
@@ -9,22 +11,27 @@ export const Route = createFileRoute("/_app/auth/register/")({
 function RouteComponent() {
   const [serverEmailError, setServerEmailError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [passwordValue, setPasswordValue] = useState<string>("");
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault(); // Prevents page reload
     setServerEmailError("");
+    setIsLoading(true);
 
     // Get form data using native FormData
-    const data = Object.fromEntries(new FormData(e.currentTarget));
+    const rawData = Object.fromEntries(new FormData(e.currentTarget));
+    delete rawData.confirmPassword;
 
-    console.log(data);
+    const data = rawData as unknown as RegisterType;
 
-    setIsLoading(true);
+    console.log(signUp(data));
+
+    setIsLoading(false);
     // Add your registration logic here
   };
 
   return (
-    <div className="h-full flex items-center justify-center p-4">
+    <div className="flex-1 flex items-center justify-center p-4">
       <Card className="max-w-md w-full p-4 shadow-lg">
         <CardHeader className="flex justify-center pb-0">
           <h2 className="text-2xl font-bold ">Sign Up</h2>
@@ -98,6 +105,7 @@ function RouteComponent() {
               placeholder="Enter your password"
               variant="bordered"
               isRequired
+              onValueChange={setPasswordValue} // Track password to compare later
               validate={(value) => {
                 if (value.length < 8) {
                   return "Password must be at least 8 characters long";
@@ -108,6 +116,24 @@ function RouteComponent() {
                 return null;
               }}
               className="w-full"
+            />
+
+            {/* Confirm Password */}
+            <Input
+              name="confirmPassword"
+              type="password"
+              placeholder="Enter your password"
+              label="Confirm Password"
+              variant="bordered"
+              isRequired
+              validate={(value) => {
+                if (value !== passwordValue) {
+                  return "Passwords do not match";
+                }
+                return null;
+              }}
+              className="w-full"
+              autoComplete="new-password"
             />
 
             <Button
