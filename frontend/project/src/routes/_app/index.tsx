@@ -17,6 +17,7 @@ function RouteComponent() {
           <a href="/auth/login" className="rounded bg-blue-600 text-white px-4 py-2">Login</a>
           <a href="/auth/register" className="rounded bg-green-600 text-white px-4 py-2">Register</a>
           <a href="/profile" className="rounded bg-indigo-600 text-white px-4 py-2">Edit Profile</a>
+          <a href="/search" className="rounded bg-teal-600 text-white px-4 py-2">Search</a>
           <a href="/auth/logout" className="rounded bg-red-600 text-white px-4 py-2">Sign Out</a>
         </div>
       </div>

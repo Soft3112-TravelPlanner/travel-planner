@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppSearchIndexRouteImport } from './routes/_app/search/index'
 import { Route as AppProfileIndexRouteImport } from './routes/_app/profile/index'
 import { Route as AppAuthRegisterIndexRouteImport } from './routes/_app/auth/register/index'
 import { Route as AppAuthLogoutIndexRouteImport } from './routes/_app/auth/logout/index'
@@ -23,6 +24,11 @@ const AppRoute = AppRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSearchIndexRoute = AppSearchIndexRouteImport.update({
+  id: '/search/',
+  path: '/search/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfileIndexRoute = AppProfileIndexRouteImport.update({
@@ -48,6 +54,7 @@ const AppAuthLoginIndexRoute = AppAuthLoginIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/search/': typeof AppSearchIndexRoute
   '/profile/': typeof AppProfileIndexRoute
   '/auth/login/': typeof AppAuthLoginIndexRoute
   '/auth/logout/': typeof AppAuthLogoutIndexRoute
@@ -55,6 +62,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/search': typeof AppSearchIndexRoute
   '/profile': typeof AppProfileIndexRoute
   '/auth/login': typeof AppAuthLoginIndexRoute
   '/auth/logout': typeof AppAuthLogoutIndexRoute
@@ -64,6 +72,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/search/': typeof AppSearchIndexRoute
   '/_app/profile/': typeof AppProfileIndexRoute
   '/_app/auth/login/': typeof AppAuthLoginIndexRoute
   '/_app/auth/logout/': typeof AppAuthLogoutIndexRoute
@@ -73,16 +82,18 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/search/'
     | '/profile/'
     | '/auth/login/'
     | '/auth/logout/'
     | '/auth/register/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/profile' | '/auth/login' | '/auth/logout' | '/auth/register'
+  to: '/' | '/search' | '/profile' | '/auth/login' | '/auth/logout' | '/auth/register'
   id:
     | '__root__'
     | '/_app'
     | '/_app/'
+    | '/_app/search/'
     | '/_app/profile/'
     | '/_app/auth/login/'
     | '/_app/auth/logout/'
@@ -107,6 +118,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/search/': {
+      id: '/_app/search/'
+      path: '/search'
+      fullPath: '/search/'
+      preLoaderRoute: typeof AppSearchIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/profile/': {
@@ -142,6 +160,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppSearchIndexRoute: typeof AppSearchIndexRoute
   AppProfileIndexRoute: typeof AppProfileIndexRoute
   AppAuthLoginIndexRoute: typeof AppAuthLoginIndexRoute
   AppAuthLogoutIndexRoute: typeof AppAuthLogoutIndexRoute
@@ -150,6 +169,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppSearchIndexRoute: AppSearchIndexRoute,
   AppProfileIndexRoute: AppProfileIndexRoute,
   AppAuthLoginIndexRoute: AppAuthLoginIndexRoute,
   AppAuthLogoutIndexRoute: AppAuthLogoutIndexRoute,
