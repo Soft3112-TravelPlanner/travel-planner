@@ -21,6 +21,12 @@ function RouteComponent() {
           <Button className="font-bold" as={Link} to="/search">
             Search
           </Button>
+          <Button className="font-bold" as={Link} to="/favorites">
+            Favorites
+          </Button>
+          <Button className="font-bold" as={Link} to="/trips">
+            Trips
+          </Button>
         </div>
         <Outlet />
       </div>
