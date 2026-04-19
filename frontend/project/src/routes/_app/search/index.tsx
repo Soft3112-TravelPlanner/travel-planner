@@ -11,10 +11,22 @@ import {
   useDisclosure,
   Slider,
   NumberInput,
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
 } from "@heroui/react";
 
 // React Icons
-import { IoSearchOutline, IoLocationOutline, IoStar } from "react-icons/io5";
+import {
+  IoSearchOutline,
+  IoLocationOutline,
+  IoStar,
+  IoHeart,
+  IoHeartOutline,
+  IoAdd,
+  IoCheckmarkOutline,
+} from "react-icons/io5";
 import { destinations } from "@/data";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { Destination } from "@/interfaces";
@@ -33,6 +45,56 @@ function SearchComponent() {
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
+
+  // Gezileri tarayıcıdan çek
+  const [trips, setTrips] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem("travel-planner-trips");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [addedStatus, setAddedStatus] = useState<Record<string, boolean>>({});
+
+  // Favorileri tarayıcı hafızasında tutan State
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("travel-planner-favorites");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Favori Ekleme/Çıkarma Fonksiyonu
+  const toggleFavorite = (id: string | number) => {
+    const strId = String(id);
+    setFavorites((prev) => {
+      const next = prev.includes(strId)
+        ? prev.filter((fid) => fid !== strId)
+        : [...prev, strId];
+      localStorage.setItem("travel-planner-favorites", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // Geziye Ekleme Fonksiyonu
+  const handleAddToTrip = (destId: string | number, tripId: string) => {
+    const updatedTrips = trips.map((trip) => {
+      if (String(trip.id) === tripId) {
+        const itinerary = trip.itinerary || [];
+        if (!itinerary.includes(String(destId))) {
+          return { ...trip, itinerary: [...itinerary, String(destId)] };
+        }
+      }
+      return trip;
+    });
+    setTrips(updatedTrips);
+    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    setAddedStatus((prev) => ({ ...prev, [destId]: true }));
+    setTimeout(() => setAddedStatus((prev) => ({ ...prev, [destId]: false })), 2000);
+  };
 
   const handleOpenModal = (dest: Destination) => {
     setSelectedDest(dest);
@@ -175,13 +237,31 @@ function SearchComponent() {
 
           {filteredDestinations.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDestinations.map((dest) => (
-                <Card
+              {filteredDestinations.map((dest) => {
+                const isFavorite = favorites.includes(String(dest.id));
+
+                return (
+                  <Card
                   key={dest.id}
                   isPressable
                   className="group border-none bg-background/60 dark:bg-default-100/50 relative"
                   onPress={() => handleOpenModal(dest)}
                 >
+                    {/* FAVORİ BUTONU */}
+                    <div className="absolute top-3 left-3 z-30">
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        radius="full"
+                        variant="flat"
+                        color={isFavorite ? "danger" : "default"}
+                        className="bg-background/80 backdrop-blur-md shadow-sm"
+                        onPress={() => toggleFavorite(dest.id)}
+                      >
+                        {isFavorite ? <IoHeart size={18} className="text-danger" /> : <IoHeartOutline size={18} />}
+                      </Button>
+                    </div>
+
                   {/* BÜTÇE ÇIKARTMASI */}
                   <div className="absolute top-3 right-3 z-20">
                     <Chip
@@ -231,17 +311,34 @@ function SearchComponent() {
                       {dest.description}
                     </p>
 
-                    <Button
-                      size="sm"
-                      color="primary"
-                      variant="shadow"
-                      className="w-full font-bold"
-                    >
-                      Explore Now
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        color="primary"
+                        variant="shadow"
+                        className="flex-1 font-bold"
+                      >
+                        Explore Now
+                      </Button>
+                      {trips.length > 0 && (
+                        <Dropdown>
+                          <DropdownTrigger>
+                            <Button size="sm" variant="flat" color={addedStatus[dest.id] ? "success" : "default"} isIconOnly>
+                              {addedStatus[dest.id] ? <IoCheckmarkOutline size={18} /> : <IoAdd size={18} />}
+                            </Button>
+                          </DropdownTrigger>
+                          <DropdownMenu aria-label="Add to Trip" onAction={(key) => handleAddToTrip(dest.id, String(key))}>
+                            {trips.map((trip) => (
+                              <DropdownItem key={trip.id}>{trip.name}</DropdownItem>
+                            ))}
+                          </DropdownMenu>
+                        </Dropdown>
+                      )}
+                    </div>
                   </CardBody>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-24 opacity-60">
