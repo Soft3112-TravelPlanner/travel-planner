@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Card,
-  CardHeader,
   CardBody,
   Image,
   Button,
@@ -20,7 +19,9 @@ import {
   IoHeartOutline,
   IoAdd,
   IoCheckmarkOutline,
+  IoMap,
 } from "react-icons/io5";
+import { motion } from "framer-motion";
 import { destinations } from "@/data";
 import type { Destination } from "@/interfaces";
 import { DestinationModal } from "@/components/destinationModal";
@@ -33,7 +34,6 @@ function RouteComponent() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
 
-  // Gezileri (Trips) tarayıcıdan çek (Hızlı ekleme için)
   const [trips, setTrips] = useState<any[]>(() => {
     try {
       const stored = localStorage.getItem("travel-planner-trips");
@@ -44,7 +44,6 @@ function RouteComponent() {
   });
   const [addedStatus, setAddedStatus] = useState<Record<string, boolean>>({});
 
-  // Favorileri tarayıcı hafızasından çekiyoruz
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("travel-planner-favorites");
@@ -54,12 +53,10 @@ function RouteComponent() {
     }
   });
 
-  // Sadece favoriye eklenmiş olan destinasyonları filtrele
   const favoriteDestinations = useMemo(() => {
     return destinations.filter((dest) => favorites.includes(String(dest.id)));
   }, [favorites]);
 
-  // Favorilerden Çıkarma / Ekleme Fonksiyonu
   const toggleFavorite = (id: string | number) => {
     const strId = String(id);
     setFavorites((prev) => {
@@ -71,7 +68,6 @@ function RouteComponent() {
     });
   };
 
-  // Geziye Ekleme Fonksiyonu
   const handleAddToTrip = (destId: string | number, tripId: string) => {
     const updatedTrips = trips.map((trip) => {
       if (String(trip.id) === tripId) {
@@ -95,131 +91,160 @@ function RouteComponent() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col gap-8 p-6 max-w-7xl mx-auto w-full mt-8">
-        <section className="flex flex-col gap-4 items-center text-center">
-          <h1 className="text-4xl font-bold tracking-tight">My Favorites</h1>
-          <p className="text-default-500 max-w-lg">
-            Your saved destinations for future trips.
-          </p>
+      <div className="flex-1 flex flex-col gap-12 p-6 max-w-7xl mx-auto w-full pb-20">
+        <section className="flex flex-col gap-4 items-center text-center mt-12">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight italic">
+              My <span className="text-primary not-italic">Favorites</span>
+            </h1>
+            <p className="text-default-500 max-w-lg mt-2 mx-auto">
+              Your curated collection of dream destinations.
+            </p>
+          </motion.div>
         </section>
 
-        <section className="flex flex-col gap-6">
+        <section className="flex flex-col gap-8">
           {favoriteDestinations.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {favoriteDestinations.map((dest) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {favoriteDestinations.map((dest, index) => {
                 const isFavorite = favorites.includes(String(dest.id));
 
                 return (
-                  <Card
+                  <motion.div
                     key={dest.id}
-                    isPressable
-                    className="group border-none bg-background/60 dark:bg-default-100/50 relative"
-                    onPress={() => handleOpenModal(dest)}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
                   >
-                    {/* FAVORİ BUTONU */}
-                    <div className="absolute top-3 left-3 z-30">
-                      <Button
-                        isIconOnly
-                        size="sm"
-                        radius="full"
-                        variant="flat"
-                        color={isFavorite ? "danger" : "default"}
-                        className="bg-background/80 backdrop-blur-md shadow-sm"
-                        onPress={() => toggleFavorite(dest.id)}
-                      >
-                        {isFavorite ? (
-                          <IoHeart size={18} className="text-danger" />
-                        ) : (
-                          <IoHeartOutline size={18} />
-                        )}
-                      </Button>
-                    </div>
+                    <Card
+                      isPressable
+                      className="group border-none bg-background hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden"
+                      onPress={() => handleOpenModal(dest)}
+                    >
+                      <div className="relative h-[280px] w-full overflow-hidden">
+                        <Image
+                          alt={dest.name}
+                          src={dest.mainImageUrl}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          removeWrapper
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        
+                        <div className="absolute top-4 left-4 z-20">
+                          <Button
+                            isIconOnly
+                            radius="full"
+                            size="sm"
+                            className={`backdrop-blur-md shadow-lg transition-colors ${
+                              isFavorite ? "bg-danger text-white" : "bg-white/80 text-black hover:bg-white"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(dest.id);
+                            }}
+                          >
+                            {isFavorite ? <IoHeart size={18} /> : <IoHeartOutline size={18} />}
+                          </Button>
+                        </div>
 
-                    {/* BÜTÇE ÇIKARTMASI */}
-                    <div className="absolute top-3 right-3 z-20">
-                      <Chip
-                        color="success"
-                        variant="shadow"
-                        size="sm"
-                        className="font-bold tracking-wide"
-                      >
-                        ${dest.estimatedBudget}
-                      </Chip>
-                    </div>
+                        <div className="absolute top-4 right-4 z-20">
+                          <Chip
+                            className="bg-white/90 backdrop-blur-md border-none font-bold text-black shadow-lg"
+                            variant="flat"
+                            size="md"
+                          >
+                            ${dest.estimatedBudget}
+                          </Chip>
+                        </div>
 
-                    <CardHeader className="p-0 overflow-hidden">
-                      <Image
-                        alt={dest.name}
-                        classNames={{
-                          wrapper: "w-full !max-w-full",
-                          img: "object-cover h-[240px] w-full",
-                        }}
-                        className="object-cover rounded-none h-[220px] w-full group-hover:scale-110 transition-transform duration-500"
-                        src={dest.mainImageUrl}
-                      />
-                    </CardHeader>
-                    <CardBody className="p-4 flex flex-col gap-4">
-                      <div className="flex justify-between items-start">
-                        <div className="flex flex-col gap-1">
-                          <h3 className="text-lg font-bold">{dest.name}</h3>
-                          <div className="flex items-center gap-1 text-default-500">
-                            <IoLocationOutline size={16} className="text-primary" />
-                            <span className="text-xs font-medium">
-                              {dest.city}, {dest.country}
-                            </span>
+                        <div className="absolute bottom-4 left-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                          <div className="flex items-center gap-1 text-white text-sm font-medium">
+                            <IoLocationOutline size={16} />
+                            {dest.city}, {dest.country}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 bg-warning-50 text-warning-600 px-2 py-1 rounded-full">
-                          <IoStar size={14} />
-                          <span className="text-xs font-bold">
+                      </div>
+
+                      <CardBody className="p-6">
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="text-xl font-bold italic group-hover:text-primary transition-colors">
+                            {dest.name}
+                          </h3>
+                          <div className="flex items-center gap-1 bg-warning/10 text-warning px-2.5 py-1 rounded-full text-xs font-black">
+                            <IoStar size={14} />
                             {dest.averageRating || "4.8"}
-                          </span>
+                          </div>
                         </div>
-                      </div>
 
-                      <p className="text-sm text-default-600 line-clamp-2 min-h-[40px]">
-                        {dest.description}
-                      </p>
+                        <p className="text-default-500 text-sm line-clamp-2 mb-6 leading-relaxed">
+                          {dest.description}
+                        </p>
 
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          color="primary"
-                          variant="shadow"
-                          className="flex-1 font-bold"
-                        >
-                          Explore Now
-                        </Button>
-                        {trips.length > 0 && (
-                          <Dropdown>
-                            <DropdownTrigger>
-                              <Button size="sm" variant="flat" color={addedStatus[dest.id] ? "success" : "default"} isIconOnly>
-                                {addedStatus[dest.id] ? <IoCheckmarkOutline size={18} /> : <IoAdd size={18} />}
-                              </Button>
-                            </DropdownTrigger>
-                            <DropdownMenu aria-label="Add to Trip" onAction={(key) => handleAddToTrip(dest.id, String(key))}>
-                              {trips.map((trip) => (
-                                <DropdownItem key={trip.id}>{trip.name}</DropdownItem>
-                              ))}
-                            </DropdownMenu>
-                          </Dropdown>
-                        )}
-                      </div>
-                    </CardBody>
-                  </Card>
+                        <div className="flex gap-3">
+                          <Button
+                            color="primary"
+                            className="flex-1 font-bold rounded-2xl shadow-lg shadow-primary/20"
+                            onPress={() => handleOpenModal(dest)}
+                          >
+                            Explore
+                          </Button>
+                          {trips.length > 0 && (
+                            <Dropdown placement="bottom-end">
+                              <DropdownTrigger>
+                                <Button 
+                                  variant="flat" 
+                                  color={addedStatus[dest.id] ? "success" : "default"} 
+                                  isIconOnly
+                                  className="rounded-2xl"
+                                >
+                                  {addedStatus[dest.id] ? <IoCheckmarkOutline size={20} /> : <IoAdd size={20} />}
+                                </Button>
+                              </DropdownTrigger>
+                              <DropdownMenu 
+                                aria-label="Add to Trip" 
+                                onAction={(key) => handleAddToTrip(dest.id, String(key))}
+                              >
+                                {trips.map((trip) => (
+                                  <DropdownItem key={trip.id} startContent={<IoMap size={18} />}>
+                                    {trip.name}
+                                  </DropdownItem>
+                                ))}
+                              </DropdownMenu>
+                            </Dropdown>
+                          )}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  </motion.div>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-24 opacity-60 gap-4">
-              <IoHeartOutline size={64} className="text-default-300" />
-              <p className="text-lg">You haven't saved any destinations yet.</p>
-              <Link to="/search">
-                <Button color="primary" variant="flat">
-                  Discover Destinations
-                </Button>
-              </Link>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-32 text-center"
+            >
+              <div className="bg-default-100 p-8 rounded-full mb-6">
+                <IoHeartOutline size={48} className="text-default-300" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">No favorites yet</h3>
+              <p className="text-default-500 max-w-sm mb-8">
+                Start exploring the world and save your favorite spots to see them here.
+              </p>
+              <Button 
+                as={Link}
+                to="/search"
+                color="primary" 
+                variant="shadow"
+                className="font-bold px-8"
+              >
+                Discover Destinations
+              </Button>
+            </motion.div>
           )}
         </section>
       </div>

@@ -55,4 +55,5 @@ export interface Destination {
   landmarks: Landmark[];
   localRestaurants: Restaurant[];
   averageRating?: number;
+  estimatedBudget: number;
 }

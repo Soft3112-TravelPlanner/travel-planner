@@ -1,6 +1,28 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Card, CardHeader, CardBody, Input, Form, Button } from "@heroui/react";
+import {
+  Card,
+  CardBody,
+  Input,
+  Form,
+  Button,
+  Avatar,
+  Divider,
+  Select,
+  SelectItem,
+  Badge,
+} from "@heroui/react";
+import {
+  IoCameraOutline,
+  IoPersonOutline,
+  IoMailOutline,
+  IoCalendarOutline,
+  IoCallOutline,
+  IoFingerPrintOutline,
+  IoSaveOutline,
+  IoTrashOutline,
+} from "react-icons/io5";
+import { motion } from "framer-motion";
 
 export const Route = createFileRoute("/_app/profile/")({
   component: RouteComponent,
@@ -23,79 +45,47 @@ const defaultProfileData: ProfileData = {
   tc: "12345678901",
   birthDate: "1990-01-01",
   phone: "+90 555 555 55 55",
-  email: "",
+  email: "ahmet@gmail.com",
   travelPreferences: "Cultural Tour",
 };
 
-const COUNTRY_CODES = [
-  { code: "+90", label: "TR" },
-  { code: "+1", label: "US" },
-  { code: "+44", label: "UK" },
-  { code: "+49", label: "GB" },
+const TRAVEL_PREFERENCES = [
+  "Cultural Tour",
+  "Nature Retreat",
+  "Adventure Getaway",
+  "Beach Holiday",
+  "Gastronomy",
 ];
 
-const PHONE_LOCAL_FORMAT = /^\d{3}\s?\d{3}\s?\d{2}\s?\d{2}$/;
 const STORAGE_KEY = "travel-planner-profile";
 
-function splitPhone(fullPhone: string) {
-  const match = fullPhone.match(/^(\+\d{1,3})\s+(.*)$/);
-  if (match) {
-    return { code: match[1], local: match[2] };
-  }
-  return { code: "+90", local: fullPhone };
-}
-
 function RouteComponent() {
-  const [profile, setProfile] = useState<ProfileData>(defaultProfileData);
   const [draft, setDraft] = useState<ProfileData>(defaultProfileData);
+  const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [phoneError, setPhoneError] = useState<string>("");
-  const [emailError, setEmailError] = useState<string>("");
-
-  const [countryCode, setCountryCode] = useState("+90");
-  const [phoneLocal, setPhoneLocal] = useState("");
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as ProfileData;
-        setProfile(parsed);
         setDraft(parsed);
-        const { code, local } = splitPhone(parsed.phone || "+90 ");
-        setCountryCode(code);
-        setPhoneLocal(local);
       } catch (e) {
         console.error("Profile parse error", e);
       }
-    } else {
-      setDraft(defaultProfileData);
-      const { code, local } = splitPhone(defaultProfileData.phone || "+90 ");
-      setCountryCode(code);
-      setPhoneLocal(local);
     }
   }, []);
 
   const saveProfile = (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
-    if (phoneLocal && !PHONE_LOCAL_FORMAT.test(phoneLocal)) {
-      setPhoneError("Phone must be in 555 555 55 55 format");
-      return;
-    }
-    if (draft.email && !draft.email.endsWith("@gmail.com")) {
-      setEmailError("Email must end with @gmail.com");
-      return;
-    }
+    setIsSaving(true);
 
-    const updated = {
-      ...draft,
-      phone: `${countryCode} ${phoneLocal}`.trim(),
-    };
-    setProfile(updated);
-    setDraft(updated);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1400);
+    setTimeout(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+      setIsSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }, 1000);
   };
 
   const setAvatarFromFile = (file: File) => {
@@ -109,22 +99,68 @@ function RouteComponent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <Card className="max-w-2xl w-full p-4 shadow-lg">
-        <CardHeader className="flex justify-center pb-0">
-          <h2 className="text-2xl font-bold">Profile</h2>
-        </CardHeader>
+    <div className="flex-1 flex flex-col gap-12 p-6 max-w-5xl mx-auto w-full pb-20">
+      <section className="mt-12">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col md:flex-row justify-between items-center gap-6"
+        >
+          <div>
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight italic">
+              Account <span className="text-primary not-italic">Settings</span>
+            </h1>
+            <p className="text-default-500 mt-2">
+              Manage your personal information and preferences.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="flat"
+              color="danger"
+              className="font-bold rounded-2xl"
+              startContent={<IoTrashOutline size={20} />}
+              onPress={() => setDraft(defaultProfileData)}
+            >
+              Reset
+            </Button>
+            <Button
+              color="primary"
+              className="font-bold rounded-2xl shadow-lg shadow-primary/20 px-8"
+              startContent={<IoSaveOutline size={20} />}
+              onPress={() => saveProfile()}
+              isLoading={isSaving}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </motion.div>
+      </section>
 
-        <CardBody>
-          <Form validationBehavior="native" onSubmit={saveProfile} className="w-full flex flex-col gap-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-[120px_1fr] w-full">
-              <div className="flex flex-col items-center gap-2 text-center mt-2">
-                {draft.avatar ? (
-                  <img src={draft.avatar} alt="Avatar" className="h-28 w-28 rounded-full border object-cover" />
-                ) : (
-                  <div className="h-28 w-28 rounded-full border bg-slate-200 flex items-center justify-center text-3xl text-slate-500">?</div>
-                )}
-                <label className="w-full bg-slate-100 border rounded px-2 py-1 text-xs text-slate-600 cursor-pointer text-center hover:bg-slate-200 transition-colors">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12">
+        {/* Profile Sidebar */}
+        <motion.section
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex flex-col gap-8"
+        >
+          <Card className="border-none bg-background shadow-xl rounded-[2.5rem] p-6 overflow-visible">
+            <CardBody className="flex flex-col items-center gap-6 overflow-visible">
+              <div className="relative group">
+                <Badge
+                  content={<IoCameraOutline size={20} />}
+                  color="primary"
+                  placement="bottom-right"
+                  className="w-10 h-10 border-4 border-background cursor-pointer"
+                >
+                  <Avatar
+                    src={draft.avatar}
+                    className="w-32 h-32 text-large shadow-2xl"
+                    showFallback
+                    fallback={<IoPersonOutline size={48} className="text-default-400" />}
+                  />
+                </Badge>
+                <label className="absolute inset-0 cursor-pointer z-20">
                   <input
                     type="file"
                     accept="image/*"
@@ -135,135 +171,156 @@ function RouteComponent() {
                     }}
                     className="hidden"
                   />
-                  <span className="text-xs">Choose File</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={() => setDraft((v) => ({ ...v, avatar: "" }))}
-                  className="rounded bg-black text-white px-3 py-1 text-xs hover:bg-slate-800 transition-colors"
-                >
-                  Remove Avatar
-                </button>
               </div>
 
-              <div className="flex flex-col gap-4 w-full">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="First Name"
-                    value={draft.name}
-                    onChange={(e) => setDraft((v) => ({ ...v, name: e.target.value }))}
-                    variant="bordered"
-                    className="w-full"
-                  />
-                  <Input
-                    label="Last Name"
-                    value={draft.surname ?? ""}
-                    onChange={(e) => setDraft((v) => ({ ...v, surname: e.target.value }))}
-                    variant="bordered"
-                    className="w-full"
-                  />
+              <div className="text-center">
+                <h3 className="text-xl font-bold italic">{draft.name} {draft.surname}</h3>
+                <p className="text-default-500 text-sm">{draft.email}</p>
+              </div>
+
+              <Divider className="my-2" />
+
+              <div className="w-full flex flex-col gap-4">
+                <div className="flex justify-between items-center px-2">
+                  <span className="text-xs font-bold text-default-400 uppercase tracking-widest">Trips Planned</span>
+                  <span className="text-sm font-black text-primary">12</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="ID Number"
-                    value={draft.tc ?? ""}
-                    onChange={(e) => setDraft((v) => ({ ...v, tc: e.target.value }))}
-                    variant="bordered"
-                    className="w-full"
-                  />
-                  <Input
-                    type="text"
-                    label="Date of Birth"
-                    placeholder="mm/dd/yyyy"
-                    value={draft.birthDate ?? ""}
-                    onChange={(e) => setDraft((v) => ({ ...v, birthDate: e.target.value }))}
-                    variant="bordered"
-                    className="w-full"
-                  />
+                <div className="flex justify-between items-center px-2">
+                  <span className="text-xs font-bold text-default-400 uppercase tracking-widest">Destinations</span>
+                  <span className="text-sm font-black text-secondary">24</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input
-                    label="Phone Number"
-                    value={phoneLocal}
-                    onChange={(e) => {
-                      const phoneValue = e.target.value;
-                      setPhoneLocal(phoneValue);
-                      if (phoneValue === "" || PHONE_LOCAL_FORMAT.test(phoneValue)) {
-                        setPhoneError("");
-                      } else {
-                        setPhoneError("Phone must be in 555 555 55 55 format");
-                      }
-                    }}
-                    isInvalid={!!phoneError}
-                    errorMessage={phoneError}
-                    variant="bordered"
-                    className="w-full"
-                    maxLength={14}
-                    startContent={
-                      <select
-                        value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="outline-none border-0 bg-transparent text-default-400 text-small appearance-none cursor-pointer"
-                      >
-                        {COUNTRY_CODES.map((c) => (
-                          <option key={c.code + c.label} value={c.code}>
-                            {c.code}
-                          </option>
-                        ))}
-                      </select>
-                    }
-                  />
-                  <Input
-                    label="Email"
-                    type="email"
-                    value={draft.email ?? ""}
-                    onChange={(e) => {
-                      const emailValue = e.target.value;
-                      setDraft((v) => ({ ...v, email: emailValue }));
-                      if (emailValue === "" || emailValue.endsWith("@gmail.com")) {
-                        setEmailError("");
-                      } else {
-                        setEmailError("Email must end with @gmail.com");
-                      }
-                    }}
-                    isInvalid={!!emailError}
-                    errorMessage={emailError}
-                    variant="bordered"
-                    className="w-full"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="w-full">
-                    <label className="block text-xs font-semibold text-slate-500 mb-1 ml-1">Travel Preference</label>
-                    <select
-                      value={draft.travelPreferences}
-                      onChange={(e) => setDraft((v) => ({ ...v, travelPreferences: e.target.value }))}
-                      className="w-full border-2 border-default-200 hover:border-default-400 focus:border-black rounded-xl px-3 py-3 text-sm focus:outline-none transition-colors bg-transparent"
-                    >
-                      <option>Cultural Tour</option>
-                      <option>Nature Retreat</option>
-                      <option>Adventure Getaway</option>
-                      <option>Beach Holiday</option>
-                      <option>Gastronomy</option>
-                    </select>
+              </div>
+            </CardBody>
+          </Card>
+        </motion.section>
+
+        {/* Form Area */}
+        <motion.section
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="flex flex-col gap-8"
+        >
+          <Card className="border-none bg-background shadow-xl rounded-[2.5rem] p-4">
+            <CardBody>
+              <Form validationBehavior="native" onSubmit={saveProfile} className="flex flex-col gap-8">
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-6 bg-primary rounded-full" />
+                    <h4 className="text-lg font-bold italic">Personal Information</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="First Name"
+                      labelPlacement="outside"
+                      placeholder="Enter first name"
+                      value={draft.name}
+                      onValueChange={(v) => setDraft(p => ({ ...p, name: v }))}
+                      variant="bordered"
+                      startContent={<IoPersonOutline className="text-default-400" />}
+                      classNames={{ inputWrapper: "h-14 rounded-2xl" }}
+                    />
+                    <Input
+                      label="Last Name"
+                      labelPlacement="outside"
+                      placeholder="Enter last name"
+                      value={draft.surname}
+                      onValueChange={(v) => setDraft(p => ({ ...p, surname: v }))}
+                      variant="bordered"
+                      startContent={<IoPersonOutline className="text-default-400" />}
+                      classNames={{ inputWrapper: "h-14 rounded-2xl" }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="ID Number"
+                      labelPlacement="outside"
+                      placeholder="11-digit ID"
+                      value={draft.tc}
+                      onValueChange={(v) => setDraft(p => ({ ...p, tc: v }))}
+                      variant="bordered"
+                      startContent={<IoFingerPrintOutline className="text-default-400" />}
+                      classNames={{ inputWrapper: "h-14 rounded-2xl" }}
+                    />
+                    <Input
+                      label="Birth Date"
+                      labelPlacement="outside"
+                      type="date"
+                      value={draft.birthDate}
+                      onValueChange={(v) => setDraft(p => ({ ...p, birthDate: v }))}
+                      variant="bordered"
+                      startContent={<IoCalendarOutline className="text-default-400" />}
+                      classNames={{ inputWrapper: "h-14 rounded-2xl" }}
+                    />
                   </div>
                 </div>
-              </div>
-            </div>
 
-            <Button
-              type="submit"
-              color="primary"
-              isDisabled={Boolean(phoneError || emailError)}
-              className="w-full mt-2"
+                <Divider />
+
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-6 bg-secondary rounded-full" />
+                    <h4 className="text-lg font-bold italic">Contact & Preferences</h4>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="Email Address"
+                      labelPlacement="outside"
+                      type="email"
+                      value={draft.email}
+                      onValueChange={(v) => setDraft(p => ({ ...p, email: v }))}
+                      variant="bordered"
+                      startContent={<IoMailOutline className="text-default-400" />}
+                      classNames={{ inputWrapper: "h-14 rounded-2xl" }}
+                    />
+                    <Input
+                      label="Phone Number"
+                      labelPlacement="outside"
+                      placeholder="+90 555 555 55 55"
+                      value={draft.phone}
+                      onValueChange={(v) => setDraft(p => ({ ...p, phone: v }))}
+                      variant="bordered"
+                      startContent={<IoCallOutline className="text-default-400" />}
+                      classNames={{ inputWrapper: "h-14 rounded-2xl" }}
+                    />
+                  </div>
+
+                  <div>
+                    <Select
+                      label="Travel Preference"
+                      labelPlacement="outside"
+                      placeholder="Select your preference"
+                      selectedKeys={[draft.travelPreferences]}
+                      onSelectionChange={(keys) => setDraft(p => ({ ...p, travelPreferences: Array.from(keys)[0] as string }))}
+                      variant="bordered"
+                      classNames={{ trigger: "h-14 rounded-2xl" }}
+                    >
+                      {TRAVEL_PREFERENCES.map((pref) => (
+                        <SelectItem key={pref}>
+                          {pref}
+                        </SelectItem>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+              </Form>
+            </CardBody>
+          </Card>
+          
+          {saved && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-success-50 text-success-600 p-4 rounded-2xl border border-success-200 text-center font-bold"
             >
-              Update Profile
-            </Button>
-          </Form>
-
-          {saved ? <p className="mt-4 text-green-600 text-center font-medium">Profile successfully saved!</p> : null}
-        </CardBody>
-      </Card>
+              Profile updated successfully!
+            </motion.div>
+          )}
+        </motion.section>
+      </div>
     </div>
   );
 }
