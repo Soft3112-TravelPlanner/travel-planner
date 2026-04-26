@@ -10,12 +10,12 @@ import {
   Chip,
   useDisclosure,
   Slider,
-  NumberInput,
   Dropdown,
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
 } from "@heroui/react";
+import { motion, AnimatePresence } from "framer-motion";
 
 // React Icons
 import {
@@ -26,6 +26,8 @@ import {
   IoHeartOutline,
   IoAdd,
   IoCheckmarkOutline,
+  IoFilterOutline,
+  IoMap,
 } from "react-icons/io5";
 import { destinations } from "@/data";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -41,7 +43,8 @@ function SearchComponent() {
   const debouncedQuery = useDebounce(searchQuery, 500);
 
   // Bütçe Aralığı State'i: [minValue, maxValue]
-  const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 5000]);
+  const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 20000]);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
@@ -57,7 +60,6 @@ function SearchComponent() {
   });
   const [addedStatus, setAddedStatus] = useState<Record<string, boolean>>({});
 
-  // Favorileri tarayıcı hafızasında tutan State
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("travel-planner-favorites");
@@ -67,7 +69,6 @@ function SearchComponent() {
     }
   });
 
-  // Favori Ekleme/Çıkarma Fonksiyonu
   const toggleFavorite = (id: string | number) => {
     const strId = String(id);
     setFavorites((prev) => {
@@ -79,7 +80,6 @@ function SearchComponent() {
     });
   };
 
-  // Geziye Ekleme Fonksiyonu
   const handleAddToTrip = (destId: string | number, tripId: string) => {
     const updatedTrips = trips.map((trip) => {
       if (String(trip.id) === tripId) {
@@ -101,21 +101,9 @@ function SearchComponent() {
     onOpen();
   };
 
-  // Input'lara elle değer girildiğinde state'i güncelleyen fonksiyonlar
-  const handleMinInputChange = (value: number) => {
-    const num = Number(value);
-    if (!isNaN(num)) setBudgetRange([num, budgetRange[1]]);
-  };
-
-  const handleMaxInputChange = (value: number) => {
-    const num = Number(value);
-    if (!isNaN(num)) setBudgetRange([budgetRange[0], num]);
-  };
-
   const filteredDestinations = useMemo(() => {
     let result = destinations;
 
-    // 1. İsim / Şehir / Ülke Araması
     if (debouncedQuery.trim()) {
       const lowerQuery = debouncedQuery.toLowerCase();
       result = result.filter(
@@ -126,7 +114,6 @@ function SearchComponent() {
       );
     }
 
-    // 2. Bütçe Aralığı Filtresi (Min ve Max aralığında olanları getir)
     result = result.filter(
       (dest) =>
         dest.estimatedBudget >= budgetRange[0] &&
@@ -138,215 +125,253 @@ function SearchComponent() {
 
   return (
     <>
-      <div className="flex-1 flex flex-col gap-8 p-6 max-w-7xl mx-auto w-full">
+      <div className="flex-1 flex flex-col gap-12 p-6 max-w-7xl mx-auto w-full pb-20">
         {/* Search Header */}
-        <section className="flex flex-col gap-4 items-center text-center mt-8">
-          <h1 className="text-4xl font-bold tracking-tight">
-            Explore the World
-          </h1>
-          <p className="text-default-500 max-w-lg">
-            Find the best landmarks and restaurants matching your budget.
-          </p>
+        <section className="flex flex-col gap-6 items-center text-center mt-12">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col gap-2"
+          >
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight italic">
+              Explore the <span className="text-primary not-italic">World</span>
+            </h1>
+            <p className="text-default-500 max-w-lg mx-auto">
+              Find the perfect destinations matching your style and budget.
+            </p>
+          </motion.div>
 
-          <div className="w-full max-w-2xl mt-4 flex flex-col gap-6 bg-default-50/50 p-6 rounded-3xl border border-divider shadow-sm">
-            {/* Arama Inputu */}
-            <Input
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              isClearable
-              radius="lg"
-              placeholder="Search city, country or place..."
-              startContent={
-                <IoSearchOutline
-                  size={20}
-                  className="text-default-400 flex-shrink-0"
-                />
-              }
-              classNames={{
-                inputWrapper:
-                  "shadow-sm bg-background hover:bg-default-200 focus-within:!bg-default-100 transition-background border border-divider",
-              }}
-            />
-
-            {/* Çift Yönlü Bütçe Filtresi (Slider + Inputs) */}
-            <div className="flex flex-col gap-3 w-full px-1">
-              <span className="text-sm font-semibold text-default-600 text-left">
-                Budget Range
-              </span>
-              <div className="flex items-center gap-4">
-                {/* Min Değer Inputu */}
-                <NumberInput
-                  value={budgetRange[0]}
-                  onValueChange={handleMinInputChange}
-                  size="sm"
-                  minValue={0}
-                  maxValue={50000}
-                  variant="faded"
-                  startContent={<span className="text-default-400">$</span>}
-                  className="w-24"
-                  hideStepper
-                  formatOptions={{
-                    maximumFractionDigits: 0,
-                  }}
-                />
-
-                {/* Range Slider */}
-                <Slider
-                  step={50}
-                  minValue={0}
-                  maxValue={50000}
-                  value={budgetRange}
-                  onChange={(v) => setBudgetRange(v as [number, number])}
-                  className="flex-1"
-                  color="primary"
-                  disableThumbScale={false}
-                />
-
-                {/* Max Değer Inputu */}
-                <NumberInput
-                  value={budgetRange[1]}
-                  minValue={0}
-                  maxValue={50000}
-                  onValueChange={handleMaxInputChange}
-                  size="sm"
-                  variant="faded"
-                  startContent={<span className="text-default-400">$</span>}
-                  className="w-24"
-                  hideStepper
-                  formatOptions={{
-                    maximumFractionDigits: 0,
-                  }}
-                />
-              </div>
+          <div className="w-full max-w-3xl mt-4 flex flex-col gap-4">
+            <div className="flex gap-2">
+              <Input
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                isClearable
+                radius="full"
+                size="lg"
+                placeholder="Where to next? (e.g. Istanbul, Tokyo, Rome)"
+                startContent={
+                  <IoSearchOutline
+                    size={24}
+                    className="text-primary flex-shrink-0"
+                  />
+                }
+                classNames={{
+                  inputWrapper: "bg-background border-2 border-divider shadow-md hover:border-primary/50 focus-within:!border-primary transition-all px-6 h-16",
+                  input: "text-lg",
+                }}
+              />
+              <Button 
+                isIconOnly 
+                radius="full" 
+                size="lg" 
+                variant={showFilters ? "solid" : "bordered"}
+                color={showFilters ? "primary" : "default"}
+                className="h-16 w-16 border-2"
+                onPress={() => setShowFilters(!showFilters)}
+              >
+                <IoFilterOutline size={24} />
+              </Button>
             </div>
+
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <Card className="bg-default-50 border-none shadow-inner p-6 mt-2">
+                    <div className="flex flex-col gap-6">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-bold uppercase tracking-wider text-default-600">
+                          Budget Range
+                        </span>
+                        <Chip variant="flat" color="primary" className="font-mono">
+                          ${budgetRange[0]} - ${budgetRange[1]}
+                        </Chip>
+                      </div>
+                      <Slider
+                        step={100}
+                        minValue={0}
+                        maxValue={20000}
+                        value={budgetRange}
+                        onChange={(v) => setBudgetRange(v as [number, number])}
+                        color="primary"
+                        size="md"
+                        classNames={{
+                          track: "bg-default-200",
+                          thumb: "bg-primary shadow-lg ring-2 ring-background",
+                        }}
+                      />
+                      <div className="flex justify-between text-xs text-default-400 font-bold">
+                        <span>$0</span>
+                        <span>$10,000</span>
+                        <span>$20,000+</span>
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </section>
 
         {/* Results Section */}
-        <section className="flex flex-col gap-6">
-          <div className="flex justify-between items-center border-b border-divider pb-4">
-            <h2 className="text-xl font-semibold">
-              {searchQuery
-                ? `Results for "${searchQuery}"`
-                : "Popular Destinations"}
-            </h2>
-            <Chip variant="dot" color="primary" size="sm">
-              {filteredDestinations.length} found
-            </Chip>
+        <section className="flex flex-col gap-8">
+          <div className="flex justify-between items-end border-b-2 border-divider pb-4">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-2xl font-bold italic">
+                {searchQuery ? "Search Results" : "Top Destinations"}
+              </h2>
+              <p className="text-sm text-default-400">
+                Showing {filteredDestinations.length} matching locations
+              </p>
+            </div>
           </div>
 
           {filteredDestinations.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredDestinations.map((dest) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredDestinations.map((dest, index) => {
                 const isFavorite = favorites.includes(String(dest.id));
 
                 return (
-                  <Card
-                  key={dest.id}
-                  isPressable
-                  className="group border-none bg-background/60 dark:bg-default-100/50 relative"
-                  onPress={() => handleOpenModal(dest)}
-                >
-                    {/* FAVORİ BUTONU */}
-                    <div className="absolute top-3 left-3 z-30">
-                      <Button
-                        isIconOnly
-                        size="sm"
-                        radius="full"
-                        variant="flat"
-                        color={isFavorite ? "danger" : "default"}
-                        className="bg-background/80 backdrop-blur-md shadow-sm"
-                        onPress={() => toggleFavorite(dest.id)}
-                      >
-                        {isFavorite ? <IoHeart size={18} className="text-danger" /> : <IoHeartOutline size={18} />}
-                      </Button>
-                    </div>
-
-                  {/* BÜTÇE ÇIKARTMASI */}
-                  <div className="absolute top-3 right-3 z-20">
-                    <Chip
-                      color="success"
-                      variant="shadow"
-                      size="sm"
-                      className="font-bold tracking-wide"
+                  <motion.div
+                    key={dest.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card
+                      isPressable
+                      className="group border-none bg-background hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden"
+                      onPress={() => handleOpenModal(dest)}
                     >
-                      ${dest.estimatedBudget}
-                    </Chip>
-                  </div>
+                      <div className="relative h-[280px] w-full overflow-hidden">
+                        <Image
+                          alt={dest.name}
+                          src={dest.mainImageUrl}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          removeWrapper
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                        
+                        {/* Tags */}
+                        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+                          <Button
+                            isIconOnly
+                            radius="full"
+                            size="sm"
+                            className={`backdrop-blur-md shadow-lg transition-colors ${
+                              isFavorite ? "bg-danger text-white" : "bg-white/80 text-black hover:bg-white"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(dest.id);
+                            }}
+                          >
+                            {isFavorite ? <IoHeart size={18} /> : <IoHeartOutline size={18} />}
+                          </Button>
+                        </div>
 
-                  <CardHeader className="p-0 overflow-hidden">
-                    <Image
-                      alt={dest.name}
-                      classNames={{
-                        wrapper: "w-full !max-w-full",
-                        img: "object-cover h-[240px] w-full",
-                      }}
-                      className="object-cover rounded-none h-[220px] w-full group-hover:scale-110 transition-transform duration-500"
-                      src={dest.mainImageUrl}
-                    />
-                  </CardHeader>
-                  <CardBody className="p-4 flex flex-col gap-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex flex-col gap-1">
-                        <h3 className="text-lg font-bold">{dest.name}</h3>
-                        <div className="flex items-center gap-1 text-default-500">
-                          <IoLocationOutline
-                            size={16}
-                            className="text-primary"
-                          />
-                          <span className="text-xs font-medium">
+                        <div className="absolute top-4 right-4 z-20">
+                          <Chip
+                            className="bg-white/90 backdrop-blur-md border-none font-bold text-black shadow-lg"
+                            variant="flat"
+                            size="md"
+                          >
+                            ${dest.estimatedBudget}
+                          </Chip>
+                        </div>
+
+                        <div className="absolute bottom-4 left-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                          <div className="flex items-center gap-1 text-white text-sm font-medium">
+                            <IoLocationOutline size={16} />
                             {dest.city}, {dest.country}
-                          </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 bg-warning-50 text-warning-600 px-2 py-1 rounded-full">
-                        <IoStar size={14} />
-                        <span className="text-xs font-bold">
-                          {dest.averageRating || "4.8"}
-                        </span>
-                      </div>
-                    </div>
 
-                    <p className="text-sm text-default-600 line-clamp-2 min-h-[40px]">
-                      {dest.description}
-                    </p>
+                      <CardBody className="p-6">
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="text-xl font-bold italic group-hover:text-primary transition-colors">
+                            {dest.name}
+                          </h3>
+                          <div className="flex items-center gap-1 bg-warning/10 text-warning px-2.5 py-1 rounded-full text-xs font-black">
+                            <IoStar size={14} />
+                            {dest.averageRating || "4.8"}
+                          </div>
+                        </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        color="primary"
-                        variant="shadow"
-                        className="flex-1 font-bold"
-                      >
-                        Explore Now
-                      </Button>
-                      {trips.length > 0 && (
-                        <Dropdown>
-                          <DropdownTrigger>
-                            <Button size="sm" variant="flat" color={addedStatus[dest.id] ? "success" : "default"} isIconOnly>
-                              {addedStatus[dest.id] ? <IoCheckmarkOutline size={18} /> : <IoAdd size={18} />}
-                            </Button>
-                          </DropdownTrigger>
-                          <DropdownMenu aria-label="Add to Trip" onAction={(key) => handleAddToTrip(dest.id, String(key))}>
-                            {trips.map((trip) => (
-                              <DropdownItem key={trip.id}>{trip.name}</DropdownItem>
-                            ))}
-                          </DropdownMenu>
-                        </Dropdown>
-                      )}
-                    </div>
-                  </CardBody>
-                </Card>
+                        <p className="text-default-500 text-sm line-clamp-2 mb-6 leading-relaxed">
+                          {dest.description}
+                        </p>
+
+                        <div className="flex gap-3">
+                          <Button
+                            color="primary"
+                            className="flex-1 font-bold rounded-2xl shadow-lg shadow-primary/20"
+                            onPress={() => handleOpenModal(dest)}
+                          >
+                            Explore
+                          </Button>
+                          {trips.length > 0 && (
+                            <Dropdown placement="bottom-end">
+                              <DropdownTrigger>
+                                <Button 
+                                  variant="flat" 
+                                  color={addedStatus[dest.id] ? "success" : "default"} 
+                                  isIconOnly
+                                  className="rounded-2xl"
+                                >
+                                  {addedStatus[dest.id] ? <IoCheckmarkOutline size={20} /> : <IoAdd size={20} />}
+                                </Button>
+                              </DropdownTrigger>
+                              <DropdownMenu 
+                                aria-label="Add to Trip" 
+                                onAction={(key) => handleAddToTrip(dest.id, String(key))}
+                              >
+                                {trips.map((trip) => (
+                                  <DropdownItem key={trip.id} startContent={<IoMap size={18} />}>
+                                    {trip.name}
+                                  </DropdownItem>
+                                ))}
+                              </DropdownMenu>
+                            </Dropdown>
+                          )}
+                        </div>
+                      </CardBody>
+                    </Card>
+                  </motion.div>
                 );
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-24 opacity-60">
-              <IoSearchOutline size={48} className="mb-4 text-default-300" />
-              <p className="text-lg">
-                We couldn't find what you're looking for within this budget.
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-32 text-center"
+            >
+              <div className="bg-default-100 p-8 rounded-full mb-6">
+                <IoSearchOutline size={48} className="text-default-300" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">No matching destinations</h3>
+              <p className="text-default-500 max-w-sm">
+                Try adjusting your filters or searching for something else to find your next adventure.
               </p>
-            </div>
+              <Button 
+                variant="light" 
+                color="primary" 
+                className="mt-4 font-bold"
+                onPress={() => {
+                  setSearchQuery("");
+                  setBudgetRange([0, 20000]);
+                }}
+              >
+                Clear all filters
+              </Button>
+            </motion.div>
           )}
         </section>
       </div>

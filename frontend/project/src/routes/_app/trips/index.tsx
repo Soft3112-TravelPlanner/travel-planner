@@ -2,7 +2,6 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Card,
-  CardHeader,
   CardBody,
   Button,
   useDisclosure,
@@ -15,15 +14,17 @@ import {
   Select,
   SelectItem,
   Form,
+  Chip,
 } from "@heroui/react";
 import {
   IoAdd,
   IoCalendarOutline,
   IoLocationOutline,
   IoAirplaneOutline,
-  IoMapOutline,
   IoTrashOutline,
+  IoChevronForwardOutline,
 } from "react-icons/io5";
+import { motion } from "framer-motion";
 import { destinations } from "@/data";
 
 export const Route = createFileRoute('/_app/trips/')({
@@ -45,7 +46,6 @@ function RouteComponent() {
 
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
-  // Gezileri tarayıcı hafızasından çek
   const [trips, setTrips] = useState<Trip[]>(() => {
     try {
       const stored = localStorage.getItem("travel-planner-trips");
@@ -55,17 +55,17 @@ function RouteComponent() {
     }
   });
 
-  // Form gönderildiğinde yeni geziyi kaydet
   const onSubmit = (e: React.FormEvent<HTMLFormElement>, onClose: () => void) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
     const newTrip: Trip = {
-      id: Date.now().toString(), // Benzersiz bir ID oluştur
+      id: Date.now().toString(),
       name: formData.get("name") as string,
       destinationId: formData.get("destinationId") as string,
       startDate: formData.get("startDate") as string,
       endDate: formData.get("endDate") as string,
+      itinerary: [],
     };
 
     const updatedTrips = [...trips, newTrip];
@@ -74,7 +74,6 @@ function RouteComponent() {
     onClose();
   };
 
-  // Geziyi Düzenleme / Güncelleme
   const onEditSubmit = (e: React.FormEvent<HTMLFormElement>, onClose: () => void) => {
     e.preventDefault();
     if (!editingTrip) return;
@@ -94,7 +93,6 @@ function RouteComponent() {
     onClose();
   };
 
-  // Geziyi Silme
   const onDeleteTrip = (id: string, onClose: () => void) => {
     const updatedTrips = trips.filter((t) => t.id !== id);
     setTrips(updatedTrips);
@@ -103,100 +101,182 @@ function RouteComponent() {
   };
 
   return (
-    <div className="flex-1 flex flex-col gap-8 p-6 max-w-7xl mx-auto w-full mt-8">
-      {/* Header Alanı */}
-      <section className="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-divider pb-6">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight">My Trips</h1>
-          <p className="text-default-500 mt-1">
+    <div className="flex-1 flex flex-col gap-12 p-6 max-w-7xl mx-auto w-full pb-20">
+      {/* Header Area */}
+      <section className="flex flex-col sm:flex-row justify-between items-center gap-6 mt-12 border-b-2 border-divider pb-8">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+        >
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight italic">
+            My <span className="text-primary not-italic">Trips</span>
+          </h1>
+          <p className="text-default-500 mt-2">
             Organize and manage your upcoming adventures.
           </p>
-        </div>
-        <Button
-          color="primary"
-          className="font-bold shadow-md"
-          startContent={<IoAdd size={20} />}
-          onPress={onOpen}
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
         >
-          Create New Trip
-        </Button>
+          <Button
+            color="primary"
+            size="lg"
+            className="font-bold shadow-lg shadow-primary/20 h-14 px-8 rounded-2xl"
+            startContent={<IoAdd size={24} />}
+            onPress={onOpen}
+          >
+            Create New Trip
+          </Button>
+        </motion.div>
       </section>
 
-      {/* Gezilerin Listelendiği Alan */}
+      {/* Trips List Area */}
       <section>
         {trips.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {trips.map((trip) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {trips.map((trip, index) => {
               const dest = destinations.find((d) => String(d.id) === trip.destinationId);
               return (
-                <Card key={trip.id} className="p-2 shadow-sm border border-divider/50 hover:border-primary/50 transition-colors">
-                  <CardHeader className="flex flex-col items-start gap-2 pb-0 px-4 pt-4">
-                    <h3 className="text-xl font-bold line-clamp-1">{trip.name}</h3>
-                  </CardHeader>
-                  <CardBody className="flex flex-col gap-4 px-4 pb-4">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 text-default-600">
-                        <IoLocationOutline size={18} className="text-primary flex-shrink-0" />
-                        <span className="text-sm font-medium line-clamp-1">
-                          {dest ? `${dest.name} (${dest.city})` : "Unknown Destination"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-default-600">
-                        <IoCalendarOutline size={18} className="text-primary flex-shrink-0" />
-                        <span className="text-sm font-medium">
-                          {trip.startDate} to {trip.endDate}
-                        </span>
-                      </div>
-                      {trip.itinerary && trip.itinerary.length > 0 && (
-                        <div className="flex items-center gap-2 text-default-600">
-                          <IoMapOutline size={18} className="text-primary flex-shrink-0" />
-                          <span className="text-sm font-medium">
-                            {trip.itinerary.length} destinations added
-                          </span>
+                <motion.div
+                  key={trip.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Card 
+                    isPressable
+                    className="group border-none bg-background hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] p-2"
+                    onPress={() => {
+                      setEditingTrip(trip);
+                      onEditOpen();
+                    }}
+                  >
+                    <div className="relative h-[200px] rounded-[2rem] overflow-hidden mb-4">
+                      {dest ? (
+                        <img 
+                          src={dest.mainImageUrl} 
+                          alt={dest.name} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-default-100 flex items-center justify-center">
+                          <IoAirplaneOutline size={48} className="text-default-300" />
                         </div>
                       )}
+                      <div className="absolute top-4 right-4">
+                        <Chip className="bg-white/90 backdrop-blur-md border-none font-bold text-black shadow-md">
+                          {dest?.city || "Unknown"}
+                        </Chip>
+                      </div>
                     </div>
-                    <Button 
-                      color="primary" 
-                      variant="flat" 
-                      className="w-full font-semibold mt-2"
-                      onPress={() => {
-                        setEditingTrip(trip);
-                        onEditOpen();
-                      }}
-                    >
-                      Organize Itinerary
-                    </Button>
-                  </CardBody>
-                </Card>
+
+                    <CardBody className="px-6 pb-6 pt-0 flex flex-col gap-4">
+                      <div className="flex flex-col gap-1">
+                        <h3 className="text-2xl font-bold italic group-hover:text-primary transition-colors line-clamp-1">
+                          {trip.name}
+                        </h3>
+                      </div>
+
+                      <div className="flex flex-col gap-3 py-2">
+                        <div className="flex items-center gap-3 text-default-600">
+                          <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                            <IoLocationOutline size={18} />
+                          </div>
+                          <span className="text-sm font-bold">
+                            {dest ? dest.name : "Destination Pending"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-default-600">
+                          <div className="p-2 bg-secondary/10 rounded-xl text-secondary">
+                            <IoCalendarOutline size={18} />
+                          </div>
+                          <span className="text-sm font-bold">
+                            {trip.startDate} - {trip.endDate}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-2 pt-4 border-t border-divider">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] uppercase tracking-widest text-default-400 font-black">Itinerary</span>
+                          <span className="text-sm font-bold text-primary">
+                            {trip.itinerary?.length || 0} stops added
+                          </span>
+                        </div>
+                        <Button 
+                          isIconOnly 
+                          variant="flat" 
+                          color="primary" 
+                          radius="full"
+                          className="group-hover:translate-x-1 transition-transform"
+                        >
+                          <IoChevronForwardOutline size={20} />
+                        </Button>
+                      </div>
+                    </CardBody>
+                  </Card>
+                </motion.div>
               );
             })}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-24 opacity-60 gap-4">
-            <IoAirplaneOutline size={64} className="text-default-300" />
-            <p className="text-lg">You haven't created any trips yet.</p>
-            <Button color="primary" variant="flat" onPress={onOpen}>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-32 text-center"
+          >
+            <div className="bg-default-100 p-10 rounded-full mb-8">
+              <IoAirplaneOutline size={64} className="text-default-300" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3">No trips planned yet</h3>
+            <p className="text-default-500 max-w-sm mb-10 leading-relaxed">
+              Start creating your dream itinerary and keep all your travel plans in one place.
+            </p>
+            <Button 
+              color="primary" 
+              size="lg"
+              variant="shadow" 
+              className="font-bold px-12 rounded-2xl"
+              onPress={onOpen}
+            >
               Start Planning
             </Button>
-          </div>
+          </motion.div>
         )}
       </section>
 
-      {/* Yeni Gezi Oluşturma Modalı */}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange} placement="top-center">
-        <ModalContent>
+      {/* New Trip Modal */}
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange} placement="center" backdrop="blur">
+        <ModalContent className="rounded-[2.5rem] p-4">
           {(onClose) => (
             <Form validationBehavior="native" onSubmit={(e) => onSubmit(e, onClose)}>
-              <ModalHeader className="flex flex-col gap-1">Create a New Trip</ModalHeader>
-              <ModalBody className="w-full flex flex-col gap-4">
-                <Input autoFocus isRequired name="name" label="Trip Name" placeholder="e.g. Summer in Paris" variant="bordered" />
+              <ModalHeader className="flex flex-col gap-1 text-2xl font-bold italic">
+                Create a New Trip
+              </ModalHeader>
+              <ModalBody className="w-full flex flex-col gap-6 py-4">
+                <Input 
+                  autoFocus 
+                  isRequired 
+                  name="name" 
+                  label="Trip Name" 
+                  placeholder="e.g. Summer in Paris" 
+                  variant="bordered" 
+                  className="font-bold"
+                  classNames={{ inputWrapper: "rounded-2xl" }}
+                />
                 
-                <Select isRequired name="destinationId" label="Destination" placeholder="Where are you going?" variant="bordered">
+                <Select 
+                  isRequired 
+                  name="destinationId" 
+                  label="Destination" 
+                  placeholder="Where are you going?" 
+                  variant="bordered"
+                  classNames={{ trigger: "rounded-2xl" }}
+                >
                   {destinations.map((dest) => (
                     <SelectItem 
                       key={dest.id} 
-                      value={String(dest.id)}
                       textValue={`${dest.name} (${dest.city}, ${dest.country})`}
                     >
                       {dest.name} ({dest.city}, {dest.country})
@@ -204,35 +284,36 @@ function RouteComponent() {
                   ))}
                 </Select>
 
-                <div className="flex gap-4">
-                  <Input isRequired name="startDate" label="Start Date" type="date" variant="bordered" placeholder=" " />
-                  <Input isRequired name="endDate" label="End Date" type="date" variant="bordered" placeholder=" " />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input isRequired name="startDate" label="Start Date" type="date" variant="bordered" classNames={{ inputWrapper: "rounded-2xl" }} />
+                  <Input isRequired name="endDate" label="End Date" type="date" variant="bordered" classNames={{ inputWrapper: "rounded-2xl" }} />
                 </div>
               </ModalBody>
-              <ModalFooter className="w-full">
-                <Button color="danger" variant="flat" onPress={onClose}>Cancel</Button>
-                <Button color="primary" type="submit">Create Trip</Button>
+              <ModalFooter className="w-full flex gap-3 pt-6">
+                <Button color="danger" variant="light" className="font-bold" onPress={onClose}>Cancel</Button>
+                <Button color="primary" type="submit" className="font-bold px-8 rounded-xl shadow-lg shadow-primary/20">Create Trip</Button>
               </ModalFooter>
             </Form>
           )}
         </ModalContent>
       </Modal>
 
-      {/* Gezi Düzenleme (Edit) Modalı */}
-      <Modal isOpen={isEditOpen} onOpenChange={onEditOpenChange} placement="top-center">
-        <ModalContent>
+      {/* Edit Trip Modal */}
+      <Modal isOpen={isEditOpen} onOpenChange={onEditOpenChange} placement="center" backdrop="blur">
+        <ModalContent className="rounded-[2.5rem] p-4">
           {(onClose) => (
             <Form validationBehavior="native" onSubmit={(e) => onEditSubmit(e, onClose)}>
-              <ModalHeader className="flex flex-col gap-1">Organize / Edit Trip</ModalHeader>
-              <ModalBody className="w-full flex flex-col gap-4">
-                <Input isRequired name="name" label="Trip Name" defaultValue={editingTrip?.name} variant="bordered" />
+              <ModalHeader className="flex flex-col gap-1 text-2xl font-bold italic">
+                Edit Trip Details
+              </ModalHeader>
+              <ModalBody className="w-full flex flex-col gap-6 py-4">
+                <Input isRequired name="name" label="Trip Name" defaultValue={editingTrip?.name} variant="bordered" classNames={{ inputWrapper: "rounded-2xl" }} />
                 
                 {editingTrip && (
-                  <Select isRequired name="destinationId" label="Destination" defaultSelectedKeys={[editingTrip.destinationId]} variant="bordered">
+                  <Select isRequired name="destinationId" label="Destination" defaultSelectedKeys={[editingTrip.destinationId]} variant="bordered" classNames={{ trigger: "rounded-2xl" }}>
                     {destinations.map((dest) => (
                       <SelectItem 
                         key={dest.id} 
-                        value={String(dest.id)}
                         textValue={`${dest.name} (${dest.city}, ${dest.country})`}
                       >
                         {dest.name} ({dest.city}, {dest.country})
@@ -241,18 +322,18 @@ function RouteComponent() {
                   </Select>
                 )}
 
-                <div className="flex gap-4">
-                  <Input isRequired name="startDate" label="Start Date" type="date" defaultValue={editingTrip?.startDate} variant="bordered" placeholder=" " />
-                  <Input isRequired name="endDate" label="End Date" type="date" defaultValue={editingTrip?.endDate} variant="bordered" placeholder=" " />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input isRequired name="startDate" label="Start Date" type="date" defaultValue={editingTrip?.startDate} variant="bordered" classNames={{ inputWrapper: "rounded-2xl" }} />
+                  <Input isRequired name="endDate" label="End Date" type="date" defaultValue={editingTrip?.endDate} variant="bordered" classNames={{ inputWrapper: "rounded-2xl" }} />
                 </div>
               </ModalBody>
-              <ModalFooter className="w-full flex justify-between">
-                <Button color="danger" variant="light" isIconOnly onPress={() => onDeleteTrip(editingTrip!.id, onClose)}>
-                  <IoTrashOutline size={20} />
+              <ModalFooter className="w-full flex justify-between pt-6">
+                <Button color="danger" variant="flat" isIconOnly className="rounded-xl" onPress={() => onDeleteTrip(editingTrip!.id, onClose)}>
+                  <IoTrashOutline size={22} />
                 </Button>
-                <div className="flex gap-2">
-                  <Button color="default" variant="flat" onPress={onClose}>Cancel</Button>
-                  <Button color="primary" type="submit">Save Changes</Button>
+                <div className="flex gap-3">
+                  <Button color="default" variant="light" className="font-bold" onPress={onClose}>Cancel</Button>
+                  <Button color="primary" type="submit" className="font-bold px-8 rounded-xl shadow-lg shadow-primary/20">Save Changes</Button>
                 </div>
               </ModalFooter>
             </Form>

@@ -8,7 +8,8 @@ import {
   Button,
   Image,
   Chip,
-  Divider,
+  Card,
+  CardBody,
   ScrollShadow,
 } from "@heroui/react";
 
@@ -104,165 +105,195 @@ export const DestinationModal = ({
     <Modal
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      size="3xl"
+      size="4xl"
       scrollBehavior="inside"
       backdrop="blur"
       classNames={{
-        base: "dark:bg-[#121212] bg-white",
-        header: "border-b-[1px] border-divider",
-        footer: "border-t-[1px] border-divider",
-        closeButton: "hover:bg-default-200 z-50", // Çarpı butonu üstte kalsın diye
+        base: "bg-background shadow-2xl rounded-[3rem] overflow-hidden border-none max-h-[90vh]",
+        header: "border-b-2 border-divider/50 px-8 py-6",
+        footer: "border-t-2 border-divider/50 px-8 py-6",
+        closeButton: "hover:bg-default-200 z-50 top-6 right-6 p-2 rounded-full",
       }}
     >
       <ModalContent>
         {(onClose) => (
           <>
-            {/* Header Kısmı Güncellendi (Bütçe Eklendi) */}
-            <ModalHeader className="flex flex-col gap-1 pr-12">
-              <div className="flex justify-between items-center w-full">
-                <h2 className="text-2xl font-bold">{destination.name}</h2>
-                <Chip
-                  color="success"
-                  variant="flat"
-                  size="md"
-                  className="font-bold tracking-wide"
-                  startContent={<IoWalletOutline size={16} />}
-                >
-                  Est. ${destination.estimatedBudget}
-                </Chip>
-              </div>
-              <div className="flex items-center gap-1 text-default-500 font-normal text-sm">
-                <div className="text-primary">
-                  <IoLocationOutline size={18} />
+            <ModalHeader className="flex flex-col gap-1 pr-16 bg-background/80 backdrop-blur-md sticky top-0 z-40">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+                <div>
+                  <h2 className="text-3xl font-extrabold italic">{destination.name}</h2>
+                  <div className="flex items-center gap-1 text-default-500 font-medium text-sm mt-1">
+                    <IoLocationOutline size={18} className="text-primary" />
+                    {destination.city}, {destination.country}
+                  </div>
                 </div>
-                {destination.city}, {destination.country}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 bg-warning/10 text-warning px-3 py-1.5 rounded-2xl text-sm font-black">
+                    <IoStar size={16} />
+                    {destination.averageRating || "4.8"}
+                  </div>
+                  <Chip
+                    color="success"
+                    variant="flat"
+                    size="lg"
+                    className="font-black h-10 px-4 rounded-2xl border-none bg-success/10 text-success"
+                    startContent={<IoWalletOutline size={18} />}
+                  >
+                    Est. ${destination.estimatedBudget}
+                  </Chip>
+                </div>
               </div>
             </ModalHeader>
 
             <ModalBody className="p-0">
-              <ScrollShadow className="w-full max-h-[75vh]">
-                {/* Hero Image */}
-                <Image
-                  src={destination.mainImageUrl}
-                  alt={destination.name}
-                  className="w-full h-[300px] object-cover rounded-none"
-                  width="100%"
-                />
+              <ScrollShadow className="w-full" hideScrollBar>
+                {/* Hero Image Section */}
+                <div className="relative w-full h-[400px]">
+                  <Image
+                    src={destination.mainImageUrl}
+                    alt={destination.name}
+                    className="w-full h-full object-cover rounded-none"
+                    removeWrapper
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+                </div>
 
-                <div className="p-6 flex flex-col gap-8">
-                  {/* Hakkında */}
-                  <section>
-                    <h4 className="text-lg font-semibold mb-2">Overview</h4>
-                    <p className="text-default-600 leading-relaxed">
-                      {destination.description}
-                    </p>
-                  </section>
-
-                  {/* Harita Bölümü */}
-                  <section className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="text-primary">
-                        <IoMapOutline size={22} />
-                      </div>
-                      <h4 className="text-lg font-semibold">Location</h4>
-                    </div>
-                    <MapSection
-                      lat={destination.coordinates.lat}
-                      lng={destination.coordinates.lng}
-                      name={destination.name}
-                    />
-                  </section>
-
-                  <Divider />
-
-                  {/* Landmarklar */}
-                  <section>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="text-secondary">
-                        <IoFlagOutline size={22} />
-                      </div>
-                      <h4 className="text-lg font-semibold">
-                        Famous Landmarks
+                <div className="px-8 pb-12 flex flex-col gap-12 -mt-12 relative z-10">
+                  {/* Overview Card */}
+                  <Card className="border-none shadow-xl rounded-[2rem] p-4">
+                    <CardBody>
+                      <h4 className="text-xl font-bold italic mb-4 flex items-center gap-2">
+                        <div className="w-1.5 h-6 bg-primary rounded-full" />
+                        Overview
                       </h4>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {destination.landmarks.map((landmark) => (
-                        <div
-                          key={landmark.id}
-                          className="p-4 rounded-xl bg-default-50 border border-divider hover:border-primary/40 transition-colors"
-                        >
-                          <p className="font-bold text-sm text-primary">
-                            {landmark.name}
-                          </p>
-                          <p className="text-xs text-default-500 mt-1">
-                            {landmark.type}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
+                      <p className="text-default-600 leading-relaxed text-lg font-medium">
+                        {destination.description}
+                      </p>
+                    </CardBody>
+                  </Card>
 
-                  {/* Restoranlar */}
-                  <section>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="text-success">
-                        <IoRestaurantOutline size={22} />
-                      </div>
-                      <h4 className="text-lg font-semibold">Where to Eat</h4>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    {/* Left: Map & Landmarks */}
+                    <div className="flex flex-col gap-12">
+                      <section className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                            <IoMapOutline size={24} />
+                          </div>
+                          <h4 className="text-xl font-bold italic">Location</h4>
+                        </div>
+                        <MapSection
+                          lat={destination.coordinates.lat}
+                          lng={destination.coordinates.lng}
+                          name={destination.name}
+                        />
+                      </section>
+
+                      <section>
+                        <div className="flex items-center gap-2 mb-6">
+                          <div className="p-2 bg-secondary/10 rounded-xl text-secondary">
+                            <IoFlagOutline size={24} />
+                          </div>
+                          <h4 className="text-xl font-bold italic"> Landmarks</h4>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4">
+                          {destination.landmarks.map((landmark) => (
+                            <div
+                              key={landmark.id}
+                              className="group p-5 rounded-3xl bg-default-50 border-2 border-transparent hover:border-primary/20 hover:bg-background hover:shadow-lg transition-all duration-300"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-bold text-lg group-hover:text-primary transition-colors">
+                                    {landmark.name}
+                                  </p>
+                                  <p className="text-sm text-default-500 font-medium mt-1">
+                                    {landmark.type}
+                                  </p>
+                                </div>
+                                <div className="p-2 bg-default-100 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <IoLocationOutline size={18} className="text-primary" />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
                     </div>
-                    <div className="flex flex-col gap-3">
-                      {destination.localRestaurants.map((restaurant) => (
-                        <div
-                          key={restaurant.id}
-                          className="flex justify-between items-center p-4 border border-divider rounded-2xl hover:bg-default-50 transition-all"
-                        >
-                          <div className="flex flex-col gap-1">
-                            <p className="font-bold text-md">
-                              {restaurant.name}
-                            </p>
-                            <p className="text-xs text-default-500">
-                              {restaurant.cuisine} • {restaurant.address}
-                            </p>
-                            <div className="flex items-center gap-1 text-warning mt-1">
-                              <IoStar size={14} />
-                              <span className="text-xs font-bold">
-                                {restaurant.rating}
-                              </span>
+
+                    {/* Right: Restaurants */}
+                    <section>
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="p-2 bg-success/10 rounded-xl text-success">
+                          <IoRestaurantOutline size={24} />
+                        </div>
+                        <h4 className="text-xl font-bold italic">Local Dining</h4>
+                      </div>
+                      <div className="flex flex-col gap-4">
+                        {destination.localRestaurants.map((restaurant) => (
+                          <div
+                            key={restaurant.id}
+                            className="group p-5 bg-default-50 border-2 border-transparent hover:border-success/20 hover:bg-background hover:shadow-lg rounded-[2rem] transition-all duration-300"
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <p className="font-bold text-lg group-hover:text-success transition-colors">
+                                  {restaurant.name}
+                                </p>
+                                <p className="text-xs text-default-500 font-bold uppercase tracking-wider mt-1">
+                                  {restaurant.cuisine}
+                                </p>
+                              </div>
+                              <Chip
+                                size="sm"
+                                variant="flat"
+                                color="success"
+                                className="font-black px-3"
+                              >
+                                {restaurant.priceRange}
+                              </Chip>
+                            </div>
+                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-divider/50">
+                              <p className="text-xs text-default-400 font-medium italic">
+                                {restaurant.address}
+                              </p>
+                              <div className="flex items-center gap-1 text-warning bg-warning/10 px-2 py-1 rounded-lg">
+                                <IoStar size={12} />
+                                <span className="text-xs font-black">
+                                  {restaurant.rating}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <Chip
-                            size="sm"
-                            variant="flat"
-                            color="success"
-                            className="font-bold"
-                          >
-                            {restaurant.priceRange}
-                          </Chip>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
+                        ))}
+                      </div>
+                    </section>
+                  </div>
                 </div>
               </ScrollShadow>
             </ModalBody>
 
-            <ModalFooter>
-              <Button color="danger" variant="light" onPress={onClose}>
+            <ModalFooter className="bg-background/80 backdrop-blur-md">
+              <Button 
+                variant="light" 
+                className="font-bold px-8 h-12 rounded-2xl" 
+                onPress={onClose}
+              >
                 Close
               </Button>
               <Button
                 color="primary"
-                variant="shadow"
+                size="lg"
+                className="font-bold px-10 h-12 rounded-2xl shadow-lg shadow-primary/20"
                 onPress={() =>
-                  // Google Maps Yol Tarifi linki düzeltildi
                   window.open(
                     `https://www.google.com/maps/dir/?api=1&destination=${destination.coordinates.lat},${destination.coordinates.lng}`,
                     "_blank",
                   )
                 }
-                startContent={<IoMapOutline size={18} />}
+                startContent={<IoMapOutline size={20} />}
               >
-                Directions
+                Get Directions
               </Button>
             </ModalFooter>
           </>
