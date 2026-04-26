@@ -24,28 +24,55 @@ export const Route = createFileRoute("/_app/auth/login/")({
 
 function RouteComponent() {
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [forgotEmail, setForgotEmail] = useState("");
   const [isForgotLoading, setIsForgotLoading] = useState(false);
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage("");
 
     const rawData = Object.fromEntries(new FormData(e.currentTarget));
-    const data = {
-      ...rawData,
-      remember: rawData.remember === "on",
-    } as unknown as LoginType;
+    const payload = {
+      email: String(rawData.email).trim(),
+      password: String(rawData.password),
+      rememberMe: rawData.remember === "on",
+    };
 
-    console.log("Login Data:", data);
-    
-    // Simulate login
-    setTimeout(() => {
-      setIsLoading(false);
+    console.log("Login payload:", payload);
+
+    try {
+      const response = await fetch("http://localhost:3001/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "E-posta veya şifre hatalı");
+      }
+
+      // Save token and user info
+      localStorage.setItem("travel-planner-profile", JSON.stringify({
+        token: result.token,
+        user: result.user
+      }));
+
+      // Navigate to dashboard
       window.location.href = "/";
-    }, 1500);
+    } catch (error: any) {
+      console.error("Login error:", error);
+      setErrorMessage(error.message || "Bir hata oluştu, lütfen tekrar deneyin.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = (
@@ -114,6 +141,8 @@ function RouteComponent() {
                 isRequired
                 size="lg"
                 startContent={<IoLockClosedOutline size={20} className="text-default-400" />}
+                isInvalid={!!errorMessage}
+                errorMessage={errorMessage}
                 classNames={{
                   inputWrapper: "h-14 rounded-2xl border-2 hover:border-primary/50 focus-within:!border-primary transition-all",
                   label: "font-bold text-default-700",

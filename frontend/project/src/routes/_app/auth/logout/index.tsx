@@ -10,10 +10,27 @@ const STORAGE_KEY = "travel-planner-profile";
 function RouteComponent() {
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    // Ortak kullanılan cihazlarda hesabımı korumak için güvenli çıkış
-    localStorage.removeItem(STORAGE_KEY);
-    navigate({ to: "/auth/login" });
+  const handleLogout = async () => {
+    try {
+      const profileStr = localStorage.getItem(STORAGE_KEY);
+      if (profileStr) {
+        const { token } = JSON.parse(profileStr);
+        if (token) {
+          await fetch("http://localhost:3001/auth/logout", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Logout request failed:", error);
+    } finally {
+      // Ortak kullanılan cihazlarda hesabımı korumak için güvenli çıkış
+      localStorage.removeItem(STORAGE_KEY);
+      navigate({ to: "/auth/login" });
+    }
   };
 
   const handleCancel = () => {
