@@ -51,7 +51,7 @@ export function DestinationCard({
       <Card
         isPressable
         className="group border-none bg-background hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden"
-        onPress={() => onOpen(destination)}
+        onPress={() => { onOpen(destination); }}
       >
         <div className="relative h-[280px] w-full overflow-hidden">
           <Image
@@ -63,6 +63,10 @@ export function DestinationCard({
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
           <div className="absolute top-4 left-4 z-20">
+            <div
+              role="presentation"
+              onClick={(e) => e.stopPropagation()}
+            >
             <Button
               isIconOnly
               radius="full"
@@ -72,10 +76,7 @@ export function DestinationCard({
                   ? "bg-danger text-white"
                   : "bg-white/80 text-black hover:bg-white"
               }`}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleFavorite(destination.id);
-              }}
+              onPress={() => onToggleFavorite(destination.id)}
             >
               {isFavorite ? (
                 <IoHeart size={18} />
@@ -83,6 +84,7 @@ export function DestinationCard({
                 <IoHeartOutline size={18} />
               )}
             </Button>
+            </div>
           </div>
 
           <div className="absolute top-4 right-4 z-20">
@@ -122,7 +124,7 @@ export function DestinationCard({
             <Button
               color="primary"
               className="flex-1 font-bold rounded-2xl shadow-lg shadow-primary/20"
-              onPress={() => onOpen(destination)}
+              onPress={() => { onOpen(destination); }}
             >
               Explore
             </Button>

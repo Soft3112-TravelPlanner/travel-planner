@@ -7,7 +7,7 @@ const ADDED_STATUS_DURATION_MS = 2000;
 
 function readStoredArray<T>(key: string): T[] {
   try {
-    const stored = globalThis.localStorage.getItem(key);
+    const stored = globalThis.localStorage?.getItem(key);
     const parsed: unknown = stored ? JSON.parse(stored) : [];
 
     return Array.isArray(parsed) ? (parsed as T[]) : [];
@@ -16,8 +16,8 @@ function readStoredArray<T>(key: string): T[] {
   }
 }
 
-function storeArray<T>(key: string, value: T[]) {
-  globalThis.localStorage.setItem(key, JSON.stringify(value));
+function storeArray<T>(key: string, value: T[]): void {
+  globalThis.localStorage?.setItem(key, JSON.stringify(value));
 }
 
 export function useDestinationCollections() {
@@ -32,7 +32,7 @@ export function useDestinationCollections() {
   const toggleFavorite = (destinationId: Destination["id"]) => {
     setFavorites((previousFavorites) => {
       const nextFavorites = previousFavorites.includes(destinationId)
-        ? previousFavorites.filter((favoriteId) => favoriteId !== destinationId)
+        ? previousFavorites.filter((favoriteId: string) => favoriteId !== destinationId)
         : [...previousFavorites, destinationId];
 
       storeArray(FAVORITES_STORAGE_KEY, nextFavorites);

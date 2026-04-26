@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Card,
   CardBody,
@@ -76,7 +76,7 @@ function RouteComponent() {
     }
   }, []);
 
-  const saveProfile = (e?: React.FormEvent<HTMLFormElement>) => {
+  const saveProfile = (e?: FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
     setIsSaving(true);
 
