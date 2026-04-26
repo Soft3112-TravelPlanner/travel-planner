@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { destinations } from "@/data";
 import type { Destination } from "@/interfaces";
 import { DestinationModal } from "@/components/destinationModal";
-import { DestinationCard } from "@/components/DestinationCard";
+import { DestinationGrid } from "@/components/DestinationGrid";
 import { useDestinationCollections } from "@/hooks/useDestinationCollections";
 
 export const Route = createFileRoute('/_app/favorites/')({
@@ -47,46 +47,39 @@ function RouteComponent() {
         </section>
 
         <section className="flex flex-col gap-8">
-          {favoriteDestinations.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {favoriteDestinations.map((dest, index) => (
-                <DestinationCard
-                  key={dest.id}
-                  destination={dest}
-                  index={index}
-                  isFavorite={favorites.includes(dest.id)}
-                  trips={trips}
-                  isAddedToTrip={Boolean(addedStatus[dest.id])}
-                  onOpen={handleOpenModal}
-                  onToggleFavorite={toggleFavorite}
-                  onAddToTrip={addToTrip}
-                />
-              ))}
-            </div>
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex flex-col items-center justify-center py-32 text-center"
-            >
-              <div className="bg-default-100 p-8 rounded-full mb-6">
-                <IoHeartOutline size={48} className="text-default-300" />
-              </div>
-              <h3 className="text-2xl font-bold mb-2">No favorites yet</h3>
-              <p className="text-default-500 max-w-sm mb-8">
-                Start exploring the world and save your favorite spots to see them here.
-              </p>
-              <Button 
-                as={Link}
-                to="/search"
-                color="primary" 
-                variant="shadow"
-                className="font-bold px-8"
+          <DestinationGrid
+            destinations={favoriteDestinations}
+            favorites={favorites}
+            trips={trips}
+            addedStatus={addedStatus}
+            onOpen={handleOpenModal}
+            onToggleFavorite={toggleFavorite}
+            onAddToTrip={addToTrip}
+            emptyState={
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-32 text-center"
               >
-                Discover Destinations
-              </Button>
-            </motion.div>
-          )}
+                <div className="bg-default-100 p-8 rounded-full mb-6">
+                  <IoHeartOutline size={48} className="text-default-300" />
+                </div>
+                <h3 className="text-2xl font-bold mb-2">No favorites yet</h3>
+                <p className="text-default-500 max-w-sm mb-8">
+                  Start exploring the world and save your favorite spots to see them here.
+                </p>
+                <Button
+                  as={Link}
+                  to="/search"
+                  color="primary"
+                  variant="shadow"
+                  className="font-bold px-8"
+                >
+                  Discover Destinations
+                </Button>
+              </motion.div>
+            }
+          />
         </section>
       </div>
 
