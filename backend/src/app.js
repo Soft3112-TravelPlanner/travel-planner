@@ -6,8 +6,9 @@ const authRoutes = require('./routes/auth');
 dotenv.config();
 
 const app = express();
+app.disable('x-powered-by');
 
-app.use(cors());
+app.use(cors({ origin: 'http://localhost:5173' }));
 app.use(express.json());
 
 // Routes
