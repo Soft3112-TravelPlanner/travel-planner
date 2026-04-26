@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Destination, Trip } from "@/interfaces";
 
 const FAVORITES_STORAGE_KEY = "travel-planner-favorites";
@@ -28,6 +28,16 @@ export function useDestinationCollections() {
     readStoredArray<string>(FAVORITES_STORAGE_KEY),
   );
   const [addedStatus, setAddedStatus] = useState<Record<string, boolean>>({});
+  const addedTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    const timeouts = addedTimeoutsRef.current;
+    return () => {
+      for (const timeoutId of Object.values(timeouts)) {
+        globalThis.clearTimeout(timeoutId);
+      }
+    };
+  }, []);
 
   const toggleFavorite = (destinationId: Destination["id"]) => {
     setFavorites((previousFavorites) => {
@@ -41,31 +51,39 @@ export function useDestinationCollections() {
   };
 
   const addToTrip = (destinationId: Destination["id"], tripId: Trip["id"]) => {
-    const updatedTrips = trips.map((trip) => {
-      if (trip.id !== tripId) {
-        return trip;
-      }
+    setTrips((previousTrips) => {
+      const updatedTrips = previousTrips.map((trip) => {
+        if (trip.id !== tripId) {
+          return trip;
+        }
 
-      const itinerary = trip.itinerary ?? [];
+        const itinerary = trip.itinerary ?? [];
 
-      if (itinerary.includes(destinationId)) {
-        return trip;
-      }
+        if (itinerary.includes(destinationId)) {
+          return trip;
+        }
 
-      return { ...trip, itinerary: [...itinerary, destinationId] };
+        return { ...trip, itinerary: [...itinerary, destinationId] };
+      });
+
+      storeArray(TRIPS_STORAGE_KEY, updatedTrips);
+      return updatedTrips;
     });
-
-    setTrips(updatedTrips);
-    storeArray(TRIPS_STORAGE_KEY, updatedTrips);
     setAddedStatus((previousStatus) => ({
       ...previousStatus,
       [destinationId]: true,
     }));
-    globalThis.setTimeout(() => {
+
+    const existingTimeout = addedTimeoutsRef.current[destinationId];
+    if (existingTimeout !== undefined) {
+      globalThis.clearTimeout(existingTimeout);
+    }
+    addedTimeoutsRef.current[destinationId] = globalThis.setTimeout(() => {
       setAddedStatus((previousStatus) => ({
         ...previousStatus,
         [destinationId]: false,
       }));
+      delete addedTimeoutsRef.current[destinationId];
     }, ADDED_STATUS_DURATION_MS);
   };
 
