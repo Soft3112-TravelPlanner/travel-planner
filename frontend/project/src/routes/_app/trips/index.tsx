@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Card,
@@ -26,19 +26,11 @@ import {
 } from "react-icons/io5";
 import { motion } from "framer-motion";
 import { destinations } from "@/data";
+import type { Trip } from "@/interfaces";
 
 export const Route = createFileRoute('/_app/trips/')({
   component: RouteComponent,
 });
-
-interface Trip {
-  id: string;
-  name: string;
-  destinationId: string;
-  startDate: string;
-  endDate: string;
-  itinerary?: string[];
-}
 
 function RouteComponent() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
@@ -55,7 +47,7 @@ function RouteComponent() {
     }
   });
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>, onClose: () => void) => {
+  const onSubmit = (e: SyntheticEvent<HTMLFormElement>, onClose: () => void) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
@@ -74,7 +66,7 @@ function RouteComponent() {
     onClose();
   };
 
-  const onEditSubmit = (e: React.FormEvent<HTMLFormElement>, onClose: () => void) => {
+  const onEditSubmit = (e: SyntheticEvent<HTMLFormElement>, onClose: () => void) => {
     e.preventDefault();
     if (!editingTrip) return;
     const formData = new FormData(e.currentTarget);

@@ -19,6 +19,15 @@ export interface LoginType {
   remember: boolean;
 }
 
+export interface Trip {
+  id: string;
+  name: string;
+  destinationId: string;
+  startDate: string;
+  endDate: string;
+  itinerary?: string[];
+}
+
 export interface Coordinate {
   lat: number;
   lng: number;

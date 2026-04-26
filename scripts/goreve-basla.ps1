@@ -6,23 +6,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$branchPattern = '^(feature|fix|docs|chore|ci|test|refactor|style)\/[a-z0-9]+(?:-[a-z0-9]+)*$'
 
 if ($BranchName -match "\s") {
   Write-Host "Dal adinda bosluk olamaz." -ForegroundColor Red
-  Write-Host "Ornek: feature/login-page" -ForegroundColor Yellow
+  Write-Host "Ornek: benim-dalim" -ForegroundColor Yellow
   exit 1
 }
 
 if ($BranchName -in @("main", "dev")) {
   Write-Host "'$BranchName' yerine bir ozellik dali adi secin." -ForegroundColor Red
-  Write-Host "Ornek: feature/123-login-page veya fix/navbar-overflow" -ForegroundColor Yellow
-  exit 1
-}
-
-if ($BranchName -notmatch $branchPattern) {
-  Write-Host "Dal adi beklenen formata uymuyor." -ForegroundColor Red
-  Write-Host "Kullanim: feature/gorev-adi, fix/hata-adi, docs/dokuman, chore/temizlik, ci/pipeline, test/test-adi, refactor/adi, style/adi" -ForegroundColor Yellow
+  Write-Host "Ornek: benim-dalim" -ForegroundColor Yellow
   exit 1
 }
 
