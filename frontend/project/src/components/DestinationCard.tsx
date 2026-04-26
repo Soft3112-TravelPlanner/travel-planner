@@ -62,15 +62,15 @@ export function DestinationCard({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-          <div className="absolute top-4 left-4 z-20">
-            <div
-              role="presentation"
-              onClick={(e) => e.stopPropagation()}
-            >
+          <div
+            className="absolute top-4 left-4 z-20"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             <Button
               isIconOnly
               radius="full"
               size="sm"
+              aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
               className={`backdrop-blur-md shadow-lg transition-colors ${
                 isFavorite
                   ? "bg-danger text-white"
@@ -84,7 +84,6 @@ export function DestinationCard({
                 <IoHeartOutline size={18} />
               )}
             </Button>
-            </div>
           </div>
 
           <div className="absolute top-4 right-4 z-20">

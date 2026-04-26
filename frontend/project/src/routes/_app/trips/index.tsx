@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Card,
@@ -47,7 +47,7 @@ function RouteComponent() {
     }
   });
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>, onClose: () => void) => {
+  const onSubmit = (e: SyntheticEvent<HTMLFormElement>, onClose: () => void) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
@@ -66,7 +66,7 @@ function RouteComponent() {
     onClose();
   };
 
-  const onEditSubmit = (e: FormEvent<HTMLFormElement>, onClose: () => void) => {
+  const onEditSubmit = (e: SyntheticEvent<HTMLFormElement>, onClose: () => void) => {
     e.preventDefault();
     if (!editingTrip) return;
     const formData = new FormData(e.currentTarget);

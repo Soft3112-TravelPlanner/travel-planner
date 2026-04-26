@@ -14,7 +14,7 @@ import {
   Image,
 } from "@heroui/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { IoMailOutline, IoLockClosedOutline, IoAirplane } from "react-icons/io5";
 import { motion } from "framer-motion";
 
@@ -29,7 +29,7 @@ function RouteComponent() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [isForgotLoading, setIsForgotLoading] = useState(false);
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -49,7 +49,7 @@ function RouteComponent() {
   };
 
   const handleForgotPassword = (
-    e: FormEvent<HTMLFormElement>,
+    e: SyntheticEvent<HTMLFormElement>,
     onClose: () => void,
   ) => {
     e.preventDefault();

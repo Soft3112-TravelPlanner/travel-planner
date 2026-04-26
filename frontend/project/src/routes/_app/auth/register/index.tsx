@@ -1,7 +1,7 @@
 import type { RegisterType } from "@/interfaces";
 import { Form, Button, Input, Image } from "@heroui/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { IoMailOutline, IoLockClosedOutline, IoPersonOutline, IoAirplane } from "react-icons/io5";
 import { motion } from "framer-motion";
 
@@ -13,7 +13,7 @@ function RouteComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordValue, setPasswordValue] = useState<string>("");
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
 
