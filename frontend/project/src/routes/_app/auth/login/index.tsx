@@ -44,7 +44,7 @@ function RouteComponent() {
     // Simulate login
     setTimeout(() => {
       setIsLoading(false);
-      window.location.href = "/";
+      globalThis.location.href = "/";
     }, 1500);
   };
 

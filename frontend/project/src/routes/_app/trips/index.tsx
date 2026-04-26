@@ -26,19 +26,11 @@ import {
 } from "react-icons/io5";
 import { motion } from "framer-motion";
 import { destinations } from "@/data";
+import type { Trip } from "@/interfaces";
 
 export const Route = createFileRoute('/_app/trips/')({
   component: RouteComponent,
 });
-
-interface Trip {
-  id: string;
-  name: string;
-  destinationId: string;
-  startDate: string;
-  endDate: string;
-  itinerary?: string[];
-}
 
 function RouteComponent() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();

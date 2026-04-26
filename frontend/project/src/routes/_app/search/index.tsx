@@ -3,36 +3,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Input,
   Card,
-  CardHeader,
-  CardBody,
-  Image,
   Button,
   Chip,
   useDisclosure,
   Slider,
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
 } from "@heroui/react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// React Icons
-import {
-  IoSearchOutline,
-  IoLocationOutline,
-  IoStar,
-  IoHeart,
-  IoHeartOutline,
-  IoAdd,
-  IoCheckmarkOutline,
-  IoFilterOutline,
-  IoMap,
-} from "react-icons/io5";
+import { IoFilterOutline, IoSearchOutline } from "react-icons/io5";
 import { destinations } from "@/data";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { Destination } from "@/interfaces";
 import { DestinationModal } from "@/components/destinationModal";
+import { DestinationCard } from "@/components/DestinationCard";
+import { useDestinationCollections } from "@/hooks/useDestinationCollections";
 
 export const Route = createFileRoute("/_app/search/")({
   component: SearchComponent,
@@ -49,52 +33,9 @@ function SearchComponent() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
 
-  // Gezileri tarayıcıdan çek
-  const [trips, setTrips] = useState<any[]>(() => {
-    try {
-      const stored = localStorage.getItem("travel-planner-trips");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [addedStatus, setAddedStatus] = useState<Record<string, boolean>>({});
-
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("travel-planner-favorites");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const toggleFavorite = (id: string | number) => {
-    const strId = String(id);
-    setFavorites((prev) => {
-      const next = prev.includes(strId)
-        ? prev.filter((fid) => fid !== strId)
-        : [...prev, strId];
-      localStorage.setItem("travel-planner-favorites", JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const handleAddToTrip = (destId: string | number, tripId: string) => {
-    const updatedTrips = trips.map((trip) => {
-      if (String(trip.id) === tripId) {
-        const itinerary = trip.itinerary || [];
-        if (!itinerary.includes(String(destId))) {
-          return { ...trip, itinerary: [...itinerary, String(destId)] };
-        }
-      }
-      return trip;
-    });
-    setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setAddedStatus((prev) => ({ ...prev, [destId]: true }));
-    setTimeout(() => setAddedStatus((prev) => ({ ...prev, [destId]: false })), 2000);
-  };
+  // Shared browser-backed trip and favorite state.
+  const { addedStatus, addToTrip, favorites, toggleFavorite, trips } =
+    useDestinationCollections();
 
   const handleOpenModal = (dest: Destination) => {
     setSelectedDest(dest);
@@ -233,119 +174,19 @@ function SearchComponent() {
 
           {filteredDestinations.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredDestinations.map((dest, index) => {
-                const isFavorite = favorites.includes(String(dest.id));
-
-                return (
-                  <motion.div
-                    key={dest.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                  >
-                    <Card
-                      isPressable
-                      className="group border-none bg-background hover:shadow-2xl transition-all duration-300 rounded-[2.5rem] overflow-hidden"
-                      onPress={() => handleOpenModal(dest)}
-                    >
-                      <div className="relative h-[280px] w-full overflow-hidden">
-                        <Image
-                          alt={dest.name}
-                          src={dest.mainImageUrl}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                          removeWrapper
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        
-                        {/* Tags */}
-                        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-                          <Button
-                            isIconOnly
-                            radius="full"
-                            size="sm"
-                            className={`backdrop-blur-md shadow-lg transition-colors ${
-                              isFavorite ? "bg-danger text-white" : "bg-white/80 text-black hover:bg-white"
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(dest.id);
-                            }}
-                          >
-                            {isFavorite ? <IoHeart size={18} /> : <IoHeartOutline size={18} />}
-                          </Button>
-                        </div>
-
-                        <div className="absolute top-4 right-4 z-20">
-                          <Chip
-                            className="bg-white/90 backdrop-blur-md border-none font-bold text-black shadow-lg"
-                            variant="flat"
-                            size="md"
-                          >
-                            ${dest.estimatedBudget}
-                          </Chip>
-                        </div>
-
-                        <div className="absolute bottom-4 left-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                          <div className="flex items-center gap-1 text-white text-sm font-medium">
-                            <IoLocationOutline size={16} />
-                            {dest.city}, {dest.country}
-                          </div>
-                        </div>
-                      </div>
-
-                      <CardBody className="p-6">
-                        <div className="flex justify-between items-start mb-3">
-                          <h3 className="text-xl font-bold italic group-hover:text-primary transition-colors">
-                            {dest.name}
-                          </h3>
-                          <div className="flex items-center gap-1 bg-warning/10 text-warning px-2.5 py-1 rounded-full text-xs font-black">
-                            <IoStar size={14} />
-                            {dest.averageRating || "4.8"}
-                          </div>
-                        </div>
-
-                        <p className="text-default-500 text-sm line-clamp-2 mb-6 leading-relaxed">
-                          {dest.description}
-                        </p>
-
-                        <div className="flex gap-3">
-                          <Button
-                            color="primary"
-                            className="flex-1 font-bold rounded-2xl shadow-lg shadow-primary/20"
-                            onPress={() => handleOpenModal(dest)}
-                          >
-                            Explore
-                          </Button>
-                          {trips.length > 0 && (
-                            <Dropdown placement="bottom-end">
-                              <DropdownTrigger>
-                                <Button 
-                                  variant="flat" 
-                                  color={addedStatus[dest.id] ? "success" : "default"} 
-                                  isIconOnly
-                                  className="rounded-2xl"
-                                >
-                                  {addedStatus[dest.id] ? <IoCheckmarkOutline size={20} /> : <IoAdd size={20} />}
-                                </Button>
-                              </DropdownTrigger>
-                              <DropdownMenu 
-                                aria-label="Add to Trip" 
-                                onAction={(key) => handleAddToTrip(dest.id, String(key))}
-                              >
-                                {trips.map((trip) => (
-                                  <DropdownItem key={trip.id} startContent={<IoMap size={18} />}>
-                                    {trip.name}
-                                  </DropdownItem>
-                                ))}
-                              </DropdownMenu>
-                            </Dropdown>
-                          )}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </motion.div>
-                );
-              })}
+              {filteredDestinations.map((dest, index) => (
+                <DestinationCard
+                  key={dest.id}
+                  destination={dest}
+                  index={index}
+                  isFavorite={favorites.includes(dest.id)}
+                  trips={trips}
+                  isAddedToTrip={Boolean(addedStatus[dest.id])}
+                  onOpen={handleOpenModal}
+                  onToggleFavorite={toggleFavorite}
+                  onAddToTrip={addToTrip}
+                />
+              ))}
             </div>
           ) : (
             <motion.div 

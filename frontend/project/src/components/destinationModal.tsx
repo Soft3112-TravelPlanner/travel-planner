@@ -286,7 +286,7 @@ export const DestinationModal = ({
                 size="lg"
                 className="font-bold px-10 h-12 rounded-2xl shadow-lg shadow-primary/20"
                 onPress={() =>
-                  window.open(
+                  globalThis.open(
                     `https://www.google.com/maps/dir/?api=1&destination=${destination.coordinates.lat},${destination.coordinates.lng}`,
                     "_blank",
                   )

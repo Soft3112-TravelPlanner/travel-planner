@@ -161,6 +161,7 @@ function RouteComponent() {
                   />
                 </Badge>
                 <label className="absolute inset-0 cursor-pointer z-20">
+                  <span className="sr-only">Upload profile picture</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -169,7 +170,7 @@ function RouteComponent() {
                       if (file) setAvatarFromFile(file);
                       e.target.value = "";
                     }}
-                    className="hidden"
+                    className="sr-only"
                   />
                 </label>
               </div>

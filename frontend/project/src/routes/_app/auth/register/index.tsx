@@ -25,7 +25,7 @@ function RouteComponent() {
 
     setTimeout(() => {
       setIsLoading(false);
-      window.location.href = "/auth/login";
+      globalThis.location.href = "/auth/login";
     }, 1500);
   };
 
@@ -155,7 +155,7 @@ function RouteComponent() {
               placeholder="••••••••"
               variant="bordered"
               isRequired
-              validate={(value) => (value !== passwordValue ? "Passwords do not match" : null)}
+              validate={(value) => (value === passwordValue ? null : "Passwords do not match")}
               startContent={<IoLockClosedOutline size={18} className="text-default-400" />}
               classNames={{
                 inputWrapper: "h-12 rounded-xl",

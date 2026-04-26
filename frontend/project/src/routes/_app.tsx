@@ -94,9 +94,9 @@ function RouteComponent() {
             <div>
               <h4 className="font-bold mb-4">Support</h4>
               <ul className="space-y-2 text-default-500 text-sm">
-                <li><a href="#">Help Center</a></li>
-                <li><a href="#">Terms of Service</a></li>
-                <li><a href="#">Privacy Policy</a></li>
+                <li><a href="/help-center">Help Center</a></li>
+                <li><a href="/terms-of-service">Terms of Service</a></li>
+                <li><a href="/privacy-policy">Privacy Policy</a></li>
               </ul>
             </div>
           </div>

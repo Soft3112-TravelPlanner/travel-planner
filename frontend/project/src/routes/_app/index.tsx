@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button, Card, CardBody, Image } from "@heroui/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { IoArrowForward, IoCompassOutline, IoCalendarOutline, IoShieldCheckmarkOutline } from "react-icons/io5";
@@ -111,7 +112,13 @@ function RouteComponent() {
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) {
+type FeatureCardProps = Readonly<{
+  icon: ReactNode;
+  title: string;
+  description: string;
+}>;
+
+function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
     <Card className="p-4 border-none bg-default-50 hover:bg-default-100 transition-colors cursor-default shadow-sm">
       <CardBody className="flex flex-col items-center text-center gap-4">

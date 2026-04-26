@@ -11,6 +11,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "lcov"],
+      include: ["src/data.ts", "src/hooks/**/*.ts", "src/mutations.ts"],
+      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    },
   },
   resolve: {
     alias: {

@@ -18,7 +18,7 @@ function RouteComponent() {
 
   const handleCancel = () => {
     // İptal ederse geldiği sayfaya geri döner
-    window.history.back();
+    globalThis.history.back();
   };
 
   return (
