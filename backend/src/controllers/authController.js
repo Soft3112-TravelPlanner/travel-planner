@@ -11,6 +11,58 @@ const generateToken = (id, tokenVersion, rememberMe) => {
     );
 };
 
+exports.register = async (req, res) => {
+    const { firstName, lastName, username, email, password } = req.body;
+
+    try {
+        // 1. Check if user already exists
+        const [existingUsers] = await db.query(
+            'SELECT * FROM users WHERE email = ? OR username = ?',
+            [email, username]
+        );
+
+        if (existingUsers.length > 0) {
+            return res.status(400).json({
+                message: existingUsers[0].email === email
+                    ? 'Bu e-posta adresi zaten kullanımda'
+                    : 'Bu kullanıcı adı zaten alınmış'
+            });
+        }
+
+        // 2. Hash password
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+
+        // 3. Create user
+        const [result] = await db.query(
+            'INSERT INTO users (first_name, last_name, username, email, password_hash) VALUES (?, ?, ?, ?, ?)',
+            [firstName, lastName, username, email, passwordHash]
+        );
+
+        const userId = result.insertId;
+
+        // 4. Generate token
+        const token = generateToken(userId, 0, false);
+
+        res.status(201).json({
+            message: 'Kayıt başarılı',
+            token,
+            user: {
+                id: userId,
+                email,
+                firstName,
+                lastName,
+                username,
+                role: 'user'
+            }
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({ message: 'Kayıt işlemi sırasında bir hata oluştu' });
+    }
+};
+
+
 exports.login = async (req, res) => {
     const { email, password, rememberMe } = req.body;
 

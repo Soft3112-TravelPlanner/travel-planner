@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
+const path = require('path');
 
 dotenv.config();
 
@@ -13,6 +15,10 @@ app.use(express.json());
 
 // Routes
 app.use('/auth', authRoutes);
+app.use('/user', userRoutes);
+
+// Static files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Basic route for testing
 app.get('/', (req, res) => {
