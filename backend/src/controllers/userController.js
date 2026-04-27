@@ -5,7 +5,7 @@ const fs = require('fs');
 exports.getProfile = async (req, res) => {
     try {
         const [users] = await db.query(
-            'SELECT id, first_name, last_name, username, email, preferences, avatar, role, created_at FROM users WHERE id = ?',
+            'SELECT id, first_name, last_name, username, email, tc, birth_date, phone, preferences, avatar, role, failed_attempts, lock_until, token_version, created_at FROM users WHERE id = ?',
             [req.user.id]
         );
 
@@ -21,9 +21,15 @@ exports.getProfile = async (req, res) => {
                 lastName: user.last_name,
                 username: user.username,
                 email: user.email,
+                tc: user.tc,
+                birthDate: user.birth_date ? new Date(user.birth_date).toISOString().split('T')[0] : null,
+                phone: user.phone,
                 preferences: user.preferences,
                 avatar: user.avatar,
                 role: user.role,
+                failedAttempts: user.failed_attempts,
+                lockUntil: user.lock_until,
+                tokenVersion: user.token_version,
                 createdAt: user.created_at
             }
         });
@@ -34,16 +40,20 @@ exports.getProfile = async (req, res) => {
 };
 
 exports.updateProfile = async (req, res) => {
-    const { firstName, lastName, preferences } = req.body;
+    const { firstName, lastName, tc, birthDate, phone, preferences } = req.body;
     const userId = req.user.id;
 
     try {
         await db.query(
-            'UPDATE users SET first_name = ?, last_name = ?, preferences = ? WHERE id = ?',
-            [firstName, lastName, preferences, userId]
+            'UPDATE users SET first_name = ?, last_name = ?, tc = ?, birth_date = ?, phone = ?, preferences = ? WHERE id = ?',
+            [firstName, lastName, tc, birthDate || null, phone, preferences, userId]
         );
 
-        res.json({ message: 'Profil başarıyla güncellendi' });
+        // Return updated fields
+        res.json({
+            message: 'Profil başarıyla güncellendi',
+            user: { firstName, lastName, tc, birthDate, phone, preferences }
+        });
     } catch (error) {
         console.error('Update profile error:', error);
         res.status(500).json({ message: 'Profil güncellenirken bir hata oluştu' });

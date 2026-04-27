@@ -26,6 +26,9 @@ const initDB = async () => {
                 email VARCHAR(191) UNIQUE NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
                 preferences VARCHAR(100) DEFAULT 'Budget',
+                tc VARCHAR(11) NULL,
+                birth_date DATE NULL,
+                phone VARCHAR(20) NULL,
                 avatar VARCHAR(255),
                 role ENUM('user', 'admin') DEFAULT 'user',
                 failed_attempts INT DEFAULT 0,
@@ -34,6 +37,17 @@ const initDB = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        try {
+            await connection.query("ALTER TABLE users ADD COLUMN tc VARCHAR(11) NULL");
+        } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.error('ALTER tc error:', e); }
+        try {
+            await connection.query("ALTER TABLE users ADD COLUMN birth_date DATE NULL");
+        } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.error('ALTER birth_date error:', e); }
+        try {
+            await connection.query("ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL");
+        } catch (e) { if (e.code !== 'ER_DUP_FIELDNAME') console.error('ALTER phone error:', e); }
+
 
         await connection.query(`
             CREATE TABLE IF NOT EXISTS token_blacklist (

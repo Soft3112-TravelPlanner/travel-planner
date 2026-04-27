@@ -10,7 +10,7 @@ dotenv.config();
 const app = express();
 app.disable('x-powered-by');
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: 'http://localhost:3000' }));
 app.use(express.json());
 
 // Routes

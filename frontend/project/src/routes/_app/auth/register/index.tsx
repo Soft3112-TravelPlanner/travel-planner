@@ -12,21 +12,38 @@ export const Route = createFileRoute("/_app/auth/register/")({
 function RouteComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordValue, setPasswordValue] = useState<string>("");
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
+    setServerError(null);
 
     const rawData = Object.fromEntries(new FormData(e.currentTarget));
-    delete rawData.confirmPassword;
+    const { firstName, lastName, username, email, password } = rawData;
 
-    const data = rawData as unknown as RegisterType;
-    console.log("Register Data:", data);
+    try {
+      const response = await fetch("http://localhost:3001/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName, username, email, password }),
+      });
 
-    setTimeout(() => {
-      setIsLoading(false);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setServerError(data.message || "Registration failed");
+        setIsLoading(false);
+        return;
+      }
+
+      localStorage.setItem("travel-planner-profile", JSON.stringify({ token: data.token, ...data.user }));
       window.location.href = "/auth/login";
-    }, 1500);
+    } catch (error) {
+      console.error("Register Error:", error);
+      setServerError("Could not connect to the server.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -162,6 +179,12 @@ function RouteComponent() {
                 label: "font-bold text-default-700",
               }}
             />
+
+            {serverError && (
+              <div className="text-danger text-sm font-bold text-center mt-2">
+                {serverError}
+              </div>
+            )}
 
             <Button
               type="submit"
