@@ -23,7 +23,7 @@ describe("Logout route", () => {
   it("clears profile and navigates on logout", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ token: "token" }));
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ token: "mock-auth-token" }));
 
     render(<RouteComponent />);
 
