@@ -3,17 +3,18 @@ import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useTheme } from "@heroui/use-theme";
 import { IoAirplane, IoSearch, IoHeart, IoMap, IoPerson, IoLogOut } from "react-icons/io5";
 import { useState, useEffect } from "react";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
 export const Route = createFileRoute("/_app")({
   component: RouteComponent,
 });
 
-function RouteComponent() {
+export function RouteComponent() {
   useTheme(); // Initialize theme
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const profileStr = localStorage.getItem("travel-planner-profile");
+    const profileStr = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (profileStr) {
       try {
         const profile = JSON.parse(profileStr);
