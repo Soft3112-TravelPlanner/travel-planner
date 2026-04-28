@@ -1,14 +1,31 @@
 import { Navbar, NavbarBrand, NavbarContent, NavbarItem, Button, HeroUIProvider } from "@heroui/react";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useTheme } from "@heroui/use-theme";
-import { IoAirplane, IoSearch, IoHeart, IoMap, IoPerson } from "react-icons/io5";
+import { IoAirplane, IoSearch, IoHeart, IoMap, IoPerson, IoLogOut } from "react-icons/io5";
+import { useState, useEffect } from "react";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
 export const Route = createFileRoute("/_app")({
   component: RouteComponent,
 });
 
-function RouteComponent() {
+export function RouteComponent() {
   useTheme(); // Initialize theme
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const profileStr = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (profileStr) {
+      try {
+        const profile = JSON.parse(profileStr);
+        if (profile?.token) {
+          setIsLoggedIn(true);
+        }
+      } catch (e) {
+        // ignore JSON parse error
+      }
+    }
+  }, []);
   return (
     <HeroUIProvider>
       <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -48,21 +65,33 @@ function RouteComponent() {
           </NavbarContent>
 
           <NavbarContent justify="end">
-            <NavbarItem className="hidden lg:flex">
-              <Button as={Link} to="/auth/login" variant="light" className="font-semibold">
-                Login
-              </Button>
-            </NavbarItem>
-            <NavbarItem>
-              <Button as={Link} to="/auth/register" color="primary" variant="flat" className="font-bold">
-                Sign Up
-              </Button>
-            </NavbarItem>
-            <NavbarItem>
-              <Button isIconOnly as={Link} to="/profile" variant="light" radius="full">
-                <IoPerson size={20} />
-              </Button>
-            </NavbarItem>
+            {!isLoggedIn ? (
+              <>
+                <NavbarItem className="hidden lg:flex">
+                  <Button as={Link} to="/auth/login" variant="light" className="font-semibold">
+                    Login
+                  </Button>
+                </NavbarItem>
+                <NavbarItem>
+                  <Button as={Link} to="/auth/register" color="primary" variant="flat" className="font-bold">
+                    Sign Up
+                  </Button>
+                </NavbarItem>
+              </>
+            ) : (
+              <>
+                <NavbarItem>
+                  <Button isIconOnly as={Link} to="/profile" variant="light" radius="full">
+                    <IoPerson size={20} />
+                  </Button>
+                </NavbarItem>
+                <NavbarItem>
+                  <Button as={Link} to="/auth/logout" variant="light" color="danger" className="font-semibold" startContent={<IoLogOut size={18} />}>
+                    Logout
+                  </Button>
+                </NavbarItem>
+              </>
+            )}
           </NavbarContent>
         </Navbar>
 
