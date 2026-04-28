@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_app/auth/login/")({
   component: RouteComponent,
 });
 
-function RouteComponent() {
+export function RouteComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 

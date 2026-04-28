@@ -7,7 +7,7 @@ export const Route = createFileRoute('/_app/auth/logout/')({
 
 const STORAGE_KEY = "travel-planner-profile";
 
-function RouteComponent() {
+export function RouteComponent() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {

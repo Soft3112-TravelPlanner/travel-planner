@@ -21,6 +21,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            frontend/project/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend/project
+        run: npm ci
+
+      - name: Run frontend tests with coverage
+        working-directory: frontend/project
+        run: npm test
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
         env:
