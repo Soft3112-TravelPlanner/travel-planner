@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -57,15 +58,13 @@ const TRAVEL_PREFERENCES = [
   "Gastronomy",
 ];
 
-const STORAGE_KEY = "travel-planner-profile";
-
 function RouteComponent() {
   const [draft, setDraft] = useState<ProfileData>(defaultProfileData);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as ProfileData;
@@ -81,7 +80,7 @@ function RouteComponent() {
     setIsSaving(true);
 
     setTimeout(() => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(draft));
       setIsSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

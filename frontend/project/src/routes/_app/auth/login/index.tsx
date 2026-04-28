@@ -17,6 +17,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { IoMailOutline, IoLockClosedOutline, IoAirplane } from "react-icons/io5";
 import { motion } from "framer-motion";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
 export const Route = createFileRoute("/_app/auth/login/")({
   component: RouteComponent,
@@ -60,7 +61,7 @@ export function RouteComponent() {
       }
 
       // Save token and user info
-      localStorage.setItem("travel-planner-profile", JSON.stringify({
+      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({
         token: result.token,
         user: result.user
       }));

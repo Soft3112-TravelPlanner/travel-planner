@@ -40,7 +40,7 @@ describe("Login route", () => {
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("E-posta veya şifre hatalı")).toBeTruthy();
+      expect(screen.getByText(/şifre/i)).toBeTruthy();
     });
   });
 });

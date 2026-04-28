@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { RouteComponent } from "./index";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
 const navigateMock = vi.fn();
 
@@ -22,10 +23,7 @@ describe("Logout route", () => {
   it("clears profile and navigates on logout", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true });
     vi.stubGlobal("fetch", fetchMock);
-    localStorage.setItem(
-      "travel-planner-profile",
-      JSON.stringify({ token: "token" })
-    );
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ token: "token" }));
 
     render(<RouteComponent />);
 
@@ -34,7 +32,7 @@ describe("Logout route", () => {
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith({ to: "/auth/login" });
     });
-    expect(localStorage.getItem("travel-planner-profile")).toBeNull();
+    expect(localStorage.getItem(PROFILE_STORAGE_KEY)).toBeNull();
   });
 
   it("calls history.back when canceling", () => {

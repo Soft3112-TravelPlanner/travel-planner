@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RouteComponent } from "./_app";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => () => ({}),
@@ -28,10 +29,7 @@ describe("App layout", () => {
   });
 
   it("shows logout action when logged in", async () => {
-    localStorage.setItem(
-      "travel-planner-profile",
-      JSON.stringify({ token: "token" })
-    );
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({ token: "token" }));
 
     render(<RouteComponent />);
 

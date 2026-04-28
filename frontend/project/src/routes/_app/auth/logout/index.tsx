@@ -1,18 +1,17 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Card, CardHeader, CardBody, Button } from "@heroui/react";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
 export const Route = createFileRoute('/_app/auth/logout/')({
   component: RouteComponent,
 })
-
-const STORAGE_KEY = "travel-planner-profile";
 
 export function RouteComponent() {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
-      const profileStr = localStorage.getItem(STORAGE_KEY);
+      const profileStr = localStorage.getItem(PROFILE_STORAGE_KEY);
       if (profileStr) {
         const { token } = JSON.parse(profileStr);
         if (token) {
@@ -28,7 +27,7 @@ export function RouteComponent() {
       console.error("Logout request failed:", error);
     } finally {
       // Ortak kullanılan cihazlarda hesabımı korumak için güvenli çıkış
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(PROFILE_STORAGE_KEY);
       navigate({ to: "/auth/login" });
     }
   };
