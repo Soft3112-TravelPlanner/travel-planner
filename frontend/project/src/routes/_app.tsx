@@ -1,7 +1,7 @@
 import { Navbar, NavbarBrand, NavbarContent, NavbarItem, Button, HeroUIProvider } from "@heroui/react";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useTheme } from "@heroui/use-theme";
-import { IoAirplane, IoSearch, IoHeart, IoMap, IoPerson, IoLogOut } from "react-icons/io5";
+import { IoAirplane, IoSearch, IoHeart, IoMap, IoPerson, IoLogOut, IoWallet } from "react-icons/io5";
 import { useState, useEffect } from "react";
 import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
@@ -60,6 +60,12 @@ export function RouteComponent() {
               <Link to="/favorites" className="flex items-center gap-2 text-foreground/70 hover:text-primary transition-colors font-medium">
                 <IoHeart size={18} />
                 Favorites
+              </Link>
+            </NavbarItem>
+            <NavbarItem>
+              <Link to="/budget" className="flex items-center gap-2 text-foreground/70 hover:text-primary transition-colors font-medium">
+                <IoWallet size={18} />
+                Budget
               </Link>
             </NavbarItem>
           </NavbarContent>
