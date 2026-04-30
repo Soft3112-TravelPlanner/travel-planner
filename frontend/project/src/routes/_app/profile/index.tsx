@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 import { useEffect, useState } from "react";
 import {
   Card,
@@ -61,13 +60,15 @@ const TRAVEL_PREFERENCES = [
   "Gastronomy",
 ];
 
+const STORAGE_KEY = "travel-planner-profile";
+
 function RouteComponent() {
   const [draft, setDraft] = useState<ProfileData>(defaultProfileData);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(PROFILE_STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
         const authData = JSON.parse(stored);
@@ -110,8 +111,49 @@ function RouteComponent() {
     if (e) e.preventDefault();
     setIsSaving(true);
 
-    setTimeout(() => {
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(draft));
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const token = stored ? JSON.parse(stored).token : null;
+
+      const response = await fetch("http://localhost:3001/user/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          firstName: draft.name,
+          lastName: draft.surname,
+          tc: draft.tc,
+          birthDate: draft.birthDate,
+          phone: draft.phone,
+          preferences: draft.travelPreferences
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          setDraft(prev => ({
+            ...prev,
+            name: data.user.firstName || "",
+            surname: data.user.lastName || "",
+            tc: data.user.tc || "",
+            birthDate: data.user.birthDate || "",
+            phone: data.user.phone || "",
+            email: data.user.email || prev.email,
+            username: data.user.username || prev.username,
+            avatar: prev.avatar,
+            id: prev.id,
+            travelPreferences: data.user.preferences || "Cultural Tour"
+          }));
+        }
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch (error) {
+      console.error("Failed to save profile", error);
+    } finally {
       setIsSaving(false);
     }
   };
