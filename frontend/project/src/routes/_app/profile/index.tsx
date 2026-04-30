@@ -30,12 +30,14 @@ export const Route = createFileRoute("/_app/profile/")({
 });
 
 interface ProfileData {
+  id?: string | number;
   name: string;
   surname?: string;
   tc?: string;
   birthDate?: string;
   phone?: string;
   email?: string;
+  username?: string;
   avatar?: string;
   travelPreferences: string;
 }
@@ -47,6 +49,7 @@ const defaultProfileData: ProfileData = {
   birthDate: "1990-01-01",
   phone: "+90 555 555 55 55",
   email: "ahmet@gmail.com",
+  username: "ahmet123",
   travelPreferences: "Cultural Tour",
 };
 
@@ -67,34 +70,73 @@ function RouteComponent() {
     const stored = localStorage.getItem(PROFILE_STORAGE_KEY);
     if (stored) {
       try {
-        const parsed = JSON.parse(stored) as ProfileData;
-        setDraft(parsed);
+        const authData = JSON.parse(stored);
+        if (authData.token) {
+          fetchProfile(authData.token);
+        }
       } catch (e) {
         console.error("Profile parse error", e);
       }
     }
   }, []);
 
-  const saveProfile = (e?: React.FormEvent<HTMLFormElement>) => {
+  const fetchProfile = async (token: string) => {
+    try {
+      const response = await fetch("http://localhost:3001/user/profile", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const user = data.user;
+        setDraft({
+          id: user.id,
+          name: user.firstName || "",
+          surname: user.lastName || "",
+          tc: user.tc || "",
+          birthDate: user.birthDate || "",
+          phone: user.phone || "",
+          email: user.email || "",
+          username: user.username || "",
+          avatar: user.avatar ? `http://localhost:3001${user.avatar}` : "",
+          travelPreferences: user.preferences || "Cultural Tour",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch profile", error);
+    }
+  };
+
+  const saveProfile = async (e?: React.FormEvent<HTMLFormElement>) => {
     if (e) e.preventDefault();
     setIsSaving(true);
 
     setTimeout(() => {
       localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(draft));
       setIsSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }, 1000);
+    }
   };
 
-  const setAvatarFromFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setDraft((v) => ({ ...v, avatar: e.target!.result as string }));
+  const setAvatarFromFile = async (file: File) => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const token = stored ? JSON.parse(stored).token : null;
+
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const response = await fetch("http://localhost:3001/user/profile/avatar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDraft((v) => ({ ...v, avatar: `http://localhost:3001${data.avatar}` }));
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Failed to upload avatar", error);
+    }
   };
 
   return (
@@ -176,6 +218,11 @@ function RouteComponent() {
               <div className="text-center">
                 <h3 className="text-xl font-bold italic">{draft.name} {draft.surname}</h3>
                 <p className="text-default-500 text-sm">{draft.email}</p>
+                {draft.id && (
+                  <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-default-100 text-default-600 text-xs font-bold tracking-tighter">
+                    USER ID: #{draft.id}
+                  </div>
+                )}
               </div>
 
               <Divider className="my-2" />
@@ -208,7 +255,7 @@ function RouteComponent() {
                     <div className="w-1 h-6 bg-primary rounded-full" />
                     <h4 className="text-lg font-bold italic">Personal Information</h4>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Input
                       label="First Name"
@@ -231,7 +278,6 @@ function RouteComponent() {
                       classNames={{ inputWrapper: "h-14 rounded-2xl" }}
                     />
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Input
                       label="ID Number"
@@ -270,11 +316,23 @@ function RouteComponent() {
                       labelPlacement="outside"
                       type="email"
                       value={draft.email}
-                      onValueChange={(v) => setDraft(p => ({ ...p, email: v }))}
+                      isDisabled
                       variant="bordered"
                       startContent={<IoMailOutline className="text-default-400" />}
                       classNames={{ inputWrapper: "h-14 rounded-2xl" }}
                     />
+                    <Input
+                      label="Username"
+                      labelPlacement="outside"
+                      value={draft.username}
+                      isDisabled
+                      variant="bordered"
+                      startContent={<IoPersonOutline className="text-default-400" />}
+                      classNames={{ inputWrapper: "h-14 rounded-2xl" }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Input
                       label="Phone Number"
                       labelPlacement="outside"
@@ -308,7 +366,7 @@ function RouteComponent() {
               </Form>
             </CardBody>
           </Card>
-          
+
           {saved && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
