@@ -18,6 +18,13 @@ import {
   Divider,
   Progress,
   Checkbox,
+  Textarea,
+  Tabs,
+  Tab,
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
 } from "@heroui/react";
 import {
   IoAdd,
@@ -30,6 +37,15 @@ import {
   IoMapOutline,
   IoTicketOutline,
   IoListOutline,
+  IoStar,
+  IoStarOutline,
+  IoCameraOutline,
+  IoCloseCircleOutline,
+  IoTimeOutline,
+  IoHourglassOutline,
+  IoMenuOutline,
+  IoEllipsisVertical,
+  IoCalendarClearOutline,
 } from "react-icons/io5";
 import { motion } from "framer-motion";
 import { destinations } from "@/data";
@@ -60,6 +76,14 @@ interface Transport {
   ticketFile?: string;
 }
 
+interface ItineraryActivity {
+  id: string;
+  title: string;
+  startTime: string;
+  duration: string;
+  dayIndex: number;
+}
+
 interface Trip {
   id: string;
   name: string;
@@ -70,6 +94,7 @@ interface Trip {
   accommodation?: Accommodation;
   transport?: Transport;
   checklist?: ChecklistItem[];
+  plannedActivities?: ItineraryActivity[];
 }
 
 const PRESET_CHECKLIST = [
@@ -84,6 +109,9 @@ function RouteComponent() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onOpenChange: onEditOpenChange } = useDisclosure();
   const { isOpen: isChecklistOpen, onOpen: onChecklistOpen, onOpenChange: onChecklistOpenChange } = useDisclosure();
+  const { isOpen: isReviewOpen, onOpen: onReviewOpen, onOpenChange: onReviewOpenChange } = useDisclosure();
+  const { isOpen: isItineraryOpen, onOpen: onItineraryOpen, onOpenChange: onItineraryOpenChange } = useDisclosure();
+  const { isOpen: isEditActivityOpen, onOpen: onEditActivityOpen, onOpenChange: onEditActivityOpenChange } = useDisclosure();
 
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
@@ -98,6 +126,34 @@ function RouteComponent() {
 
   const [checklistTripId, setChecklistTripId] = useState<string | null>(null);
   const [customChecklistItem, setCustomChecklistItem] = useState("");
+
+  const [reviewTrip, setReviewTrip] = useState<Trip | null>(null);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewPhotos, setReviewPhotos] = useState<string[]>([]);
+
+  // Itinerary State
+  const [itineraryTrip, setItineraryTrip] = useState<Trip | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number>(0);
+  const [newActivityTitle, setNewActivityTitle] = useState("");
+  const [newActivityTime, setNewActivityTime] = useState("");
+  const [newActivityDuration, setNewActivityDuration] = useState("");
+  const [draggedActivityId, setDraggedActivityId] = useState<string | null>(null);
+
+  const [editingActivity, setEditingActivity] = useState<ItineraryActivity | null>(null);
+  const [editActivityTitle, setEditActivityTitle] = useState("");
+  const [editActivityTime, setEditActivityTime] = useState("");
+  const [editActivityDuration, setEditActivityDuration] = useState("");
+
+  const [reviews, setReviews] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem("travel-planner-reviews");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const handleOpenChecklist = (tripId: string) => {
     setChecklistTripId(tripId);
@@ -133,6 +189,190 @@ function RouteComponent() {
     const updatedTrips = trips.map(t => t.id === tripId ? { ...t, checklist: t.checklist?.filter(c => c.id !== itemId) } : t);
     setTrips(updatedTrips);
     localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+  };
+
+  const handleOpenReview = (trip: Trip) => {
+    const existingReview = reviews.find((r) => r.tripId === trip.id);
+    if (existingReview) {
+      setRating(existingReview.rating);
+      setReviewText(existingReview.text);
+      setReviewPhotos(existingReview.photos || []);
+    } else {
+      setRating(0);
+      setHoverRating(0);
+      setReviewText("");
+      setReviewPhotos([]);
+    }
+    setReviewTrip(trip);
+    onReviewOpen();
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (reviewPhotos.length + files.length > 3) {
+      alert("You can only upload up to 3 photos.");
+      return;
+    }
+    
+    const newPhotos = await Promise.all(
+      files.map((file) => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      })
+    );
+
+    setReviewPhotos((prev) => [...prev, ...newPhotos].slice(0, 3));
+  };
+
+  const removePhoto = (index: number) => {
+    setReviewPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const onSubmitReview = (onClose: () => void) => {
+    if (!reviewTrip || rating === 0) {
+      alert("Please select a rating (1-5 stars).");
+      return;
+    }
+
+    const newReview = {
+      id: Date.now().toString(),
+      tripId: reviewTrip.id,
+      destinationId: reviewTrip.destinationId,
+      userId: "current_user",
+      userName: "Traveler",
+      rating,
+      text: reviewText,
+      photos: reviewPhotos,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedReviews = reviews.filter(r => r.tripId !== reviewTrip.id);
+    updatedReviews.push(newReview);
+    
+    setReviews(updatedReviews);
+    localStorage.setItem("travel-planner-reviews", JSON.stringify(updatedReviews));
+    onClose();
+  };
+
+  // ITINERARY LOGIC
+  const handleOpenItinerary = (trip: Trip) => {
+    setItineraryTrip(trip);
+    setSelectedDay(0);
+    onItineraryOpen();
+  };
+
+  const getTripDays = (trip: Trip) => {
+    const start = new Date(trip.startDate);
+    const end = new Date(trip.endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    return Array.from({ length: diffDays }).map((_, i) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      return {
+        index: i,
+        label: `Day ${i + 1}`,
+        dateString: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      };
+    });
+  };
+
+  const handleAddActivity = () => {
+    if (!itineraryTrip || !newActivityTitle || !newActivityTime) return;
+
+    const newActivity: ItineraryActivity = {
+      id: Date.now().toString(),
+      title: newActivityTitle,
+      startTime: newActivityTime,
+      duration: newActivityDuration,
+      dayIndex: selectedDay,
+    };
+
+    const updatedTrips = trips.map(t => {
+      if (t.id === itineraryTrip.id) {
+        const newActs = [...(t.plannedActivities || []), newActivity].sort((a, b) => a.startTime.localeCompare(b.startTime));
+        return { ...t, plannedActivities: newActs };
+      }
+      return t;
+    });
+
+    setTrips(updatedTrips);
+    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    setItineraryTrip(updatedTrips.find(t => t.id === itineraryTrip.id) || null);
+    setNewActivityTitle("");
+    setNewActivityTime("");
+    setNewActivityDuration("");
+  };
+
+  const handleDeleteActivity = (tripId: string, actId: string) => {
+    const updatedTrips = trips.map(t => t.id === tripId ? { ...t, plannedActivities: t.plannedActivities?.filter(a => a.id !== actId) } : t);
+    setTrips(updatedTrips);
+    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    setItineraryTrip(updatedTrips.find(t => t.id === tripId) || null);
+  };
+
+  const handleMoveActivity = (tripId: string, actId: string, newDayIndex: number) => {
+    const updatedTrips = trips.map(t => {
+      if (t.id === tripId) {
+        const newActs = (t.plannedActivities || []).map(a => a.id === actId ? { ...a, dayIndex: newDayIndex } : a).sort((a, b) => a.startTime.localeCompare(b.startTime));
+        return { ...t, plannedActivities: newActs };
+      }
+      return t;
+    });
+    setTrips(updatedTrips);
+    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    setItineraryTrip(updatedTrips.find(t => t.id === tripId) || null);
+  };
+
+  const handleInitiateEditActivity = (act: ItineraryActivity) => {
+    setEditingActivity(act);
+    setEditActivityTitle(act.title);
+    setEditActivityTime(act.startTime);
+    setEditActivityDuration(act.duration || "");
+    onEditActivityOpen();
+  };
+
+  const handleSaveEditActivity = (onClose: () => void) => {
+    if (!itineraryTrip || !editingActivity || !editActivityTitle || !editActivityTime) return;
+
+    const updatedTrips = trips.map(t => {
+      if (t.id === itineraryTrip.id) {
+        const newActs = (t.plannedActivities || []).map(a => {
+          if (a.id === editingActivity.id) {
+            return { ...a, title: editActivityTitle, startTime: editActivityTime, duration: editActivityDuration };
+          }
+          return a;
+        }).sort((a, b) => a.startTime.localeCompare(b.startTime));
+        return { ...t, plannedActivities: newActs };
+      }
+      return t;
+    });
+
+    setTrips(updatedTrips);
+    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    setItineraryTrip(updatedTrips.find(t => t.id === itineraryTrip.id) || null);
+    onClose();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedActivityId || draggedActivityId === targetId || !itineraryTrip) return;
+    const currentActs = [...(itineraryTrip.plannedActivities || [])];
+    const draggedIndex = currentActs.findIndex(a => a.id === draggedActivityId);
+    const targetIndex = currentActs.findIndex(a => a.id === targetId);
+    if (draggedIndex > -1 && targetIndex > -1) {
+      const [draggedAct] = currentActs.splice(draggedIndex, 1);
+      currentActs.splice(targetIndex, 0, draggedAct);
+      const updatedTrips = trips.map(t => t.id === itineraryTrip.id ? { ...t, plannedActivities: currentActs } : t);
+      setTrips(updatedTrips);
+      localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+      setItineraryTrip(updatedTrips.find(t => t.id === itineraryTrip.id) || null);
+    }
+    setDraggedActivityId(null);
   };
 
   // Request notification permissions
@@ -325,6 +565,8 @@ function RouteComponent() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {trips.map((trip, index) => {
               const dest = destinations.find((d) => String(d.id) === trip.destinationId);
+              const isTripFinished = new Date(trip.endDate).getTime() < new Date().getTime();
+              const hasReviewed = reviews.some(r => r.tripId === trip.id);
               return (
                 <motion.div
                   key={trip.id}
@@ -471,7 +713,7 @@ function RouteComponent() {
                         <div className="flex flex-col">
                           <span className="text-[10px] uppercase tracking-widest text-default-400 font-black">Itinerary</span>
                           <span className="text-sm font-bold text-primary">
-                            {trip.itinerary?.length || 0} stops added
+                            {trip.plannedActivities?.length || trip.itinerary?.length || 0} stops added
                           </span>
                         </div>
                         <div className="flex gap-2">
@@ -490,11 +732,27 @@ function RouteComponent() {
                             color="primary" 
                             radius="full"
                             className="group-hover:translate-x-1 transition-transform"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenItinerary(trip); }}
                           >
                             <IoChevronForwardOutline size={20} />
                           </Button>
                         </div>
                       </div>
+
+                      {/* Add Review Button for finished trips */}
+                      {isTripFinished && (
+                        <div className="mt-2">
+                          <Button
+                            color={hasReviewed ? "success" : "primary"}
+                            variant={hasReviewed ? "flat" : "shadow"}
+                            className="w-full font-bold rounded-xl"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenReview(trip); }}
+                            startContent={hasReviewed ? <IoStar /> : <IoStarOutline />}
+                          >
+                            {hasReviewed ? "Edit Review" : "Leave a Review"}
+                          </Button>
+                        </div>
+                      )}
                     </CardBody>
                   </Card>
                 </motion.div>
@@ -769,6 +1027,260 @@ function RouteComponent() {
           }}
         </ModalContent>
       </Modal>
+
+      {/* Review Modal */}
+      <Modal isOpen={isReviewOpen} onOpenChange={onReviewOpenChange} placement="center" backdrop="blur" scrollBehavior="inside">
+        <ModalContent className="rounded-[2.5rem] p-4">
+          {(onClose) => {
+            const dest = destinations.find(d => String(d.id) === reviewTrip?.destinationId);
+            return (
+              <>
+                <ModalHeader className="flex flex-col gap-1 text-2xl font-bold italic">
+                  How was {dest?.name || "your trip"}?
+                </ModalHeader>
+                <ModalBody className="w-full py-4 flex flex-col gap-6">
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-default-500 font-medium">Tap to rate your experience</span>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          className="text-4xl text-warning transition-transform hover:scale-110"
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          onClick={() => setRating(star)}
+                        >
+                          {(hoverRating || rating) >= star ? <IoStar /> : <IoStarOutline />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Textarea
+                    label="Tell us about your experience..."
+                    placeholder="What did you love? What could be better?"
+                    variant="bordered"
+                    value={reviewText}
+                    onValueChange={setReviewText}
+                    classNames={{ inputWrapper: "rounded-2xl" }}
+                    minRows={4}
+                  />
+
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-bold text-default-700">Add Photos (Max 3)</span>
+                    <div className="flex gap-4 items-center">
+                      {reviewPhotos.map((photo, index) => (
+                        <div key={index} className="relative w-20 h-20 rounded-xl overflow-hidden shadow-md">
+                          <img src={photo} alt={`Review ${index + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            className="absolute top-1 right-1 text-danger bg-white/80 rounded-full"
+                            onClick={() => removePhoto(index)}
+                          >
+                            <IoCloseCircleOutline size={20} />
+                          </button>
+                        </div>
+                      ))}
+                      {reviewPhotos.length < 3 && (
+                        <label className="flex flex-col items-center justify-center w-20 h-20 rounded-xl border-2 border-dashed border-divider hover:border-primary hover:text-primary cursor-pointer transition-colors text-default-400 bg-default-50">
+                          <IoCameraOutline size={24} />
+                          <span className="text-[10px] font-bold mt-1">Upload</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={handlePhotoUpload}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </ModalBody>
+                <ModalFooter className="w-full flex gap-3 pt-6">
+                  <Button color="danger" variant="light" className="font-bold" onPress={onClose}>Cancel</Button>
+                  <Button 
+                    color="primary" 
+                    className="font-bold px-8 rounded-xl shadow-lg shadow-primary/20" 
+                    onPress={() => onSubmitReview(onClose)}
+                  >
+                    Post Review
+                  </Button>
+                </ModalFooter>
+              </>
+            );
+          }}
+        </ModalContent>
+      </Modal>
+
+      {/* Itinerary Planner Modal */}
+      <Modal isOpen={isItineraryOpen} onOpenChange={onItineraryOpenChange} size="3xl" placement="center" backdrop="blur" scrollBehavior="inside">
+        <ModalContent className="rounded-[2.5rem] p-2">
+          {(onClose) => {
+            const tripDays = itineraryTrip ? getTripDays(itineraryTrip) : [];
+            const dayActivities = (itineraryTrip?.plannedActivities || []).filter(a => a.dayIndex === selectedDay);
+
+            return (
+              <>
+                <ModalHeader className="flex flex-col gap-1 px-6 pt-6">
+                  <h2 className="text-2xl font-bold italic">{itineraryTrip?.name} - Itinerary</h2>
+                  <p className="text-sm text-default-500 font-medium">Plan your daily activities and organize your time.</p>
+                </ModalHeader>
+                
+                <ModalBody className="px-6 py-2 flex flex-col gap-6">
+                  <Tabs
+                    aria-label="Trip Days"
+                    variant="light"
+                    color="primary"
+                    selectedKey={selectedDay.toString()}
+                    onSelectionChange={(k) => setSelectedDay(Number(k))}
+                    classNames={{
+                      tabList: "w-full gap-4 overflow-x-auto pb-2",
+                      tab: "px-6 py-3 h-auto",
+                      tabContent: "flex flex-col items-center gap-1"
+                    }}
+                  >
+                    {tripDays.map(day => {
+                      const hasActivities = (itineraryTrip?.plannedActivities || []).some(a => a.dayIndex === day.index);
+                      return (
+                        <Tab
+                          key={day.index.toString()}
+                          title={
+                            <div className={`flex flex-col items-center gap-0.5 transition-all ${hasActivities ? 'opacity-100 drop-shadow-sm' : 'opacity-50'}`}>
+                              <div className="flex items-center gap-1.5 relative">
+                                <span className="font-bold text-lg">{day.label}</span>
+                                {hasActivities && <span className="absolute -right-3.5 top-1.5 w-1.5 h-1.5 rounded-full bg-primary shadow-sm" />}
+                              </div>
+                              <span className="text-xs">{day.dateString}</span>
+                            </div>
+                          }
+                        />
+                      );
+                    })}
+                  </Tabs>
+
+                  <div className="flex-1 flex flex-col gap-6 overflow-y-auto">
+                    {dayActivities.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center bg-default-50 rounded-3xl border-2 border-dashed border-divider">
+                        <IoCalendarClearOutline size={48} className="text-default-300 mb-4" />
+                        <p className="font-bold text-default-600">No activities planned</p>
+                        <p className="text-sm text-default-400">Add something to do on {tripDays[selectedDay]?.label}</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col relative pl-4 pb-4" onDragOver={(e) => e.preventDefault()}>
+                        <div className="absolute left-[27px] top-4 bottom-4 w-0.5 bg-divider" />
+                        {dayActivities.map((act) => (
+                          <motion.div
+                            layout
+                            key={act.id}
+                            draggable
+                            onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; setTimeout(() => setDraggedActivityId(act.id), 0); }}
+                            onDragEnd={() => setDraggedActivityId(null)}
+                            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                            onDrop={(e) => handleDrop(e, act.id)}
+                            className={`relative pl-12 py-3 cursor-grab active:cursor-grabbing ${draggedActivityId === act.id ? 'opacity-40' : 'opacity-100'}`}
+                          >
+                            <div className="absolute left-[23px] top-8 w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-background z-10" />
+                            <Card className="bg-background shadow-md border border-divider/50 rounded-2xl hover:shadow-lg hover:border-primary/50 transition-all">
+                              <CardBody className="p-4 flex flex-row items-center gap-4">
+                                <div className="text-default-300">
+                                  <IoMenuOutline size={24} />
+                                </div>
+                                <div className="flex-1 flex flex-col gap-1">
+                                  <p className="font-bold text-lg">{act.title}</p>
+                                  <div className="flex items-center gap-4 text-sm text-default-500">
+                                    <span className="flex items-center gap-1 font-medium"><IoTimeOutline className="text-primary"/> {act.startTime}</span>
+                                    {act.duration && <span className="flex items-center gap-1 font-medium"><IoHourglassOutline className="text-secondary"/> {act.duration}</span>}
+                                  </div>
+                                </div>
+                                <Dropdown placement="bottom-end">
+                                  <DropdownTrigger>
+                                    <Button isIconOnly variant="light" size="sm" radius="full">
+                                      <IoEllipsisVertical size={18} />
+                                    </Button>
+                                  </DropdownTrigger>
+                                  <DropdownMenu aria-label="Activity Actions">
+                                    <DropdownItem key="edit" className="text-primary font-bold" onPress={() => handleInitiateEditActivity(act)}>
+                                      Edit Details
+                                    </DropdownItem>
+                                    <DropdownItem key="move" className="text-default-700 h-auto py-2">
+                                      <div className="flex flex-col gap-2">
+                                        <span className="text-xs font-bold text-default-500 uppercase">Move to Day</span>
+                                        <div className="grid grid-cols-3 gap-2">
+                                          {tripDays.map(d => (
+                                            <Button key={d.index} size="sm" variant={d.index === selectedDay ? "solid" : "flat"} color={d.index === selectedDay ? "primary" : "default"} onPress={() => handleMoveActivity(itineraryTrip!.id, act.id, d.index)}>
+                                              {d.index + 1}
+                                            </Button>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </DropdownItem>
+                                    <DropdownItem key="delete" color="danger" className="text-danger mt-2" onPress={() => handleDeleteActivity(itineraryTrip!.id, act.id)}>
+                                      Delete Activity
+                                    </DropdownItem>
+                                  </DropdownMenu>
+                                </Dropdown>
+                              </CardBody>
+                            </Card>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-default-50 p-4 rounded-3xl mt-auto">
+                    <h4 className="text-sm font-bold uppercase tracking-wider text-default-500 mb-3 ml-2">Add New Activity</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                      <div className="sm:col-span-5">
+                        <Input placeholder="What's the plan? (e.g. Louvre Museum)" value={newActivityTitle} onValueChange={setNewActivityTitle} variant="bordered" size="sm" label="Title" classNames={{ inputWrapper: "rounded-xl bg-background" }} />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <Input type="time" value={newActivityTime} onValueChange={setNewActivityTime} variant="bordered" size="sm" label="Time" classNames={{ inputWrapper: "rounded-xl bg-background" }} />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <Input placeholder="e.g. 2h 30m" value={newActivityDuration} onValueChange={setNewActivityDuration} variant="bordered" size="sm" label="Duration" classNames={{ inputWrapper: "rounded-xl bg-background" }} />
+                      </div>
+                      <div className="sm:col-span-1 flex justify-end pb-1">
+                        <Button color="primary" isIconOnly className="rounded-xl w-full sm:w-10 h-10 shadow-md" onPress={handleAddActivity} isDisabled={!newActivityTitle || !newActivityTime}>
+                          <IoAdd size={22} />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </ModalBody>
+              </>
+            );
+          }}
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Activity Modal */}
+      <Modal isOpen={isEditActivityOpen} onOpenChange={onEditActivityOpenChange} placement="center" backdrop="blur">
+        <ModalContent className="rounded-[2.5rem] p-2">
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1 px-6 pt-6 text-2xl font-bold italic">
+                Edit Activity
+              </ModalHeader>
+              <ModalBody className="px-6 py-4 flex flex-col gap-5">
+                <Input label="Title" placeholder="e.g. Louvre Museum" variant="bordered" value={editActivityTitle} onValueChange={setEditActivityTitle} classNames={{ inputWrapper: "rounded-xl bg-background" }} isRequired />
+                <div className="grid grid-cols-2 gap-4">
+                  <Input type="time" label="Start Time" variant="bordered" value={editActivityTime} onValueChange={setEditActivityTime} classNames={{ inputWrapper: "rounded-xl bg-background" }} isRequired />
+                  <Input label="Duration" placeholder="e.g. 2h 30m" variant="bordered" value={editActivityDuration} onValueChange={setEditActivityDuration} classNames={{ inputWrapper: "rounded-xl bg-background" }} />
+                </div>
+              </ModalBody>
+              <ModalFooter className="px-6 pb-6">
+                <Button color="danger" variant="light" onPress={onClose} className="font-bold">Cancel</Button>
+                <Button color="primary" onPress={() => handleSaveEditActivity(onClose)} className="font-bold rounded-xl shadow-lg" isDisabled={!editActivityTitle || !editActivityTime}>
+                  Save Changes
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
     </div>
   );
 }

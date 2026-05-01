@@ -10,6 +10,7 @@ import {
   SelectItem,
   Divider,
   Chip,
+  Image,
 } from "@heroui/react";
 import {
   IoWalletOutline,
@@ -21,6 +22,8 @@ import {
   IoEllipsisHorizontalCircleOutline,
   IoTrashOutline,
   IoAddCircleOutline,
+  IoCameraOutline,
+  IoCloseCircleOutline,
 } from "react-icons/io5";
 import { motion } from "framer-motion";
 
@@ -42,6 +45,7 @@ interface Expense {
   amount: number;
   category: Category;
   date: string;
+  receiptPhoto?: string;
 }
 
 const CATEGORIES: { label: Category; icon: any; color: "warning" | "primary" | "secondary" | "success" | "danger" | "default" }[] = [
@@ -72,6 +76,7 @@ function RouteComponent() {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category>("Food");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null);
 
   // Filter state
   const [filterDate, setFilterDate] = useState<string>("All");
@@ -139,6 +144,15 @@ function RouteComponent() {
   const remainingBudget = totalBudget - totalSpent;
   const progressPercentage = Math.min((totalSpent / totalBudget) * 100, 100);
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => setReceiptPhoto(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   // Handlers
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,11 +164,13 @@ function RouteComponent() {
       amount: parseFloat(amount),
       category,
       date,
+      receiptPhoto: receiptPhoto || undefined,
     };
 
     setExpenses((prev) => [newExpense, ...prev]);
     setTitle("");
     setAmount("");
+    setReceiptPhoto(null);
   };
 
   const handleDeleteExpense = (id: string) => {
@@ -387,6 +403,32 @@ function RouteComponent() {
                   variant="bordered"
                   isRequired
                 />
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm font-medium text-default-700">Receipt Photo (Optional)</span>
+                  {receiptPhoto ? (
+                    <div className="relative w-24 h-24 rounded-xl overflow-hidden shadow-md border border-divider">
+                      <img src={receiptPhoto} alt="Receipt preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        className="absolute top-1 right-1 text-danger bg-white/80 rounded-full"
+                        onClick={() => setReceiptPhoto(null)}
+                      >
+                        <IoCloseCircleOutline size={20} />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-24 rounded-xl border-2 border-dashed border-divider hover:border-primary hover:text-primary cursor-pointer transition-colors text-default-400 bg-default-50">
+                      <IoCameraOutline size={28} />
+                      <span className="text-xs font-bold mt-2">Click to Upload Receipt</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                      />
+                    </label>
+                  )}
+                </div>
                 <Button type="submit" color="primary" className="font-bold mt-2 shadow-lg" startContent={<IoAddCircleOutline size={20} />}>
                   Add Expense
                 </Button>
@@ -428,6 +470,11 @@ function RouteComponent() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
+                      {expense.receiptPhoto && (
+                        <div className="hidden sm:block w-12 h-12 rounded-xl overflow-hidden shadow-sm border border-divider shrink-0">
+                          <Image src={expense.receiptPhoto} alt="Receipt" className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform" onClick={() => window.open(expense.receiptPhoto, '_blank')} removeWrapper />
+                        </div>
+                      )}
                         <span className="font-black text-lg text-foreground">
                           ${expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
