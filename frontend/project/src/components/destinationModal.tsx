@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -21,6 +21,8 @@ import {
   IoStar,
   IoMapOutline,
   IoWalletOutline, // Bütçe ikonu eklendi
+  IoStarOutline,
+  IoChatbubblesOutline,
 } from "react-icons/io5";
 
 // Leaflet bileşenleri
@@ -100,6 +102,24 @@ export const DestinationModal = ({
   onOpenChange,
 }: Props) => {
   if (!destination) return null;
+
+  // Yorumları State'te tutuyoruz
+  const [reviews, setReviews] = useState<any[]>([]);
+
+  // Modal her açıldığında yorumları localStorage'dan güncel çek
+  useEffect(() => {
+    if (isOpen) {
+      try {
+        const stored = localStorage.getItem("travel-planner-reviews");
+        if (stored) setReviews(JSON.parse(stored));
+      } catch {
+        setReviews([]);
+      }
+    }
+  }, [isOpen]);
+
+  // Sadece şu anki destinasyonun yorumlarını filtrele
+  const destinationReviews = reviews.filter(r => String(r.destinationId) === String(destination.id));
 
   return (
     <Modal
@@ -269,6 +289,68 @@ export const DestinationModal = ({
                       </div>
                     </section>
                   </div>
+
+                  {/* Traveler Reviews Section */}
+                  <section className="mt-4 border-t-2 border-divider/50 pt-12">
+                    <div className="flex items-center justify-between mb-8">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                          <IoStar size={28} />
+                        </div>
+                        <h4 className="text-2xl md:text-3xl font-extrabold italic">Traveler Reviews</h4>
+                      </div>
+                      <Chip variant="flat" color="primary" size="lg" className="font-bold rounded-2xl">
+                        {destinationReviews.length} Reviews
+                      </Chip>
+                    </div>
+
+                    <div className="flex flex-col gap-6">
+                      {destinationReviews.length > 0 ? (
+                        destinationReviews.map(review => (
+                          <Card key={review.id} className="border-none bg-default-50 hover:bg-background hover:shadow-xl transition-all duration-300 rounded-[2.5rem]">
+                            <CardBody className="p-8">
+                              <div className="flex flex-wrap justify-between items-start gap-4 mb-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-14 h-14 bg-primary/20 rounded-full flex items-center justify-center text-primary font-black text-xl">
+                                    {review.userName.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-xl">{review.userName}</p>
+                                    <p className="text-sm text-default-500 font-medium">
+                                      {new Date(review.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex gap-1 text-warning bg-warning/10 px-3 py-1.5 rounded-xl text-lg">
+                                  {[...Array(5)].map((_, i) => (
+                                    i < review.rating ? <IoStar key={i} /> : <IoStarOutline key={i} />
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="text-default-700 leading-relaxed text-lg font-medium mb-6">
+                                {review.text}
+                              </p>
+                              {review.photos && review.photos.length > 0 && (
+                                <div className="flex gap-4 overflow-x-auto pb-2 snap-x">
+                                  {review.photos.map((photo: string, i: number) => (
+                                    <div key={i} className="relative w-32 h-32 flex-shrink-0 rounded-2xl overflow-hidden shadow-md snap-center">
+                                      <Image src={photo} alt={`Review ${i}`} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500 cursor-pointer" removeWrapper />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </CardBody>
+                          </Card>
+                        ))
+                      ) : (
+                        <div className="text-center py-16 bg-default-50 rounded-[2.5rem] border-2 border-dashed border-divider">
+                          <IoChatbubblesOutline size={64} className="mx-auto text-default-300 mb-4" />
+                          <h5 className="text-xl font-bold mb-2">No reviews yet</h5>
+                          <p className="text-default-500">Book a trip, experience this destination, and be the first to share your thoughts!</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
                 </div>
               </ScrollShadow>
             </ModalBody>

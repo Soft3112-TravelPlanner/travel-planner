@@ -11,6 +11,14 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Select,
+  SelectItem,
+  Input,
 } from "@heroui/react";
 import {
   IoLocationOutline,
@@ -33,6 +41,13 @@ export const Route = createFileRoute('/_app/favorites/')({
 function RouteComponent() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
+
+  // Ekleme Modalı State'leri
+  const { isOpen: isAddOpen, onOpen: onAddOpen, onOpenChange: onAddOpenChange } = useDisclosure();
+  const [pendingAdd, setPendingAdd] = useState<{ destId: string | number, tripId: string } | null>(null);
+  const [addDay, setAddDay] = useState("0");
+  const [addTime, setAddTime] = useState("");
+  const [addDuration, setAddDuration] = useState("");
 
   const [trips, setTrips] = useState<any[]>(() => {
     try {
@@ -68,20 +83,57 @@ function RouteComponent() {
     });
   };
 
-  const handleAddToTrip = (destId: string | number, tripId: string) => {
+  const getTripDays = (trip: any) => {
+    const start = new Date(trip.startDate);
+    const end = new Date(trip.endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    return Array.from({ length: diffDays }).map((_, i) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      return {
+        index: i,
+        label: `Day ${i + 1} (${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})`
+      };
+    });
+  };
+
+  const handleInitiateAdd = (destId: string | number, tripId: string) => {
+    setPendingAdd({ destId, tripId });
+    setAddDay("0");
+    setAddTime("");
+    setAddDuration("");
+    onAddOpen();
+  };
+
+  const handleConfirmAdd = (onClose: () => void) => {
+    if (!pendingAdd) return;
+    const { destId, tripId } = pendingAdd;
+    const dest = destinations.find(d => String(d.id) === String(destId));
+    if (!dest) return;
+
     const updatedTrips = trips.map((trip) => {
       if (String(trip.id) === tripId) {
-        const itinerary = trip.itinerary || [];
-        if (!itinerary.includes(String(destId))) {
-          return { ...trip, itinerary: [...itinerary, String(destId)] };
-        }
+        const plannedActivities = trip.plannedActivities || [];
+        const newActivity = {
+          id: Date.now().toString(),
+          title: dest.name,
+          startTime: addTime,
+          duration: addDuration,
+          dayIndex: Number(addDay),
+        };
+        const newActs = [...plannedActivities, newActivity].sort((a, b) => (a.startTime || "24:00").localeCompare(b.startTime || "24:00"));
+        return { ...trip, plannedActivities: newActs };
       }
       return trip;
     });
+
     setTrips(updatedTrips);
     localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
     setAddedStatus((prev) => ({ ...prev, [destId]: true }));
     setTimeout(() => setAddedStatus((prev) => ({ ...prev, [destId]: false })), 2000);
+    onClose();
   };
 
   const handleOpenModal = (dest: Destination) => {
@@ -205,7 +257,7 @@ function RouteComponent() {
                               </DropdownTrigger>
                               <DropdownMenu 
                                 aria-label="Add to Trip" 
-                                onAction={(key) => handleAddToTrip(dest.id, String(key))}
+                                onAction={(key) => handleInitiateAdd(dest.id, String(key))}
                               >
                                 {trips.map((trip) => (
                                   <DropdownItem key={trip.id} startContent={<IoMap size={18} />}>
@@ -254,6 +306,53 @@ function RouteComponent() {
         isOpen={isOpen}
         onOpenChange={onOpenChange}
       />
+
+      {/* Add Activity Modal */}
+      <Modal isOpen={isAddOpen} onOpenChange={onAddOpenChange} placement="center" backdrop="blur">
+        <ModalContent className="rounded-[2.5rem] p-2">
+          {(onClose) => {
+            const trip = trips.find(t => t.id === pendingAdd?.tripId);
+            const dest = destinations.find(d => String(d.id) === String(pendingAdd?.destId));
+            const tripDays = trip ? getTripDays(trip) : [];
+
+            return (
+              <>
+                <ModalHeader className="flex flex-col gap-1 px-6 pt-6 text-2xl font-bold italic">
+                  Add to {trip?.name}
+                </ModalHeader>
+                <ModalBody className="px-6 py-4 flex flex-col gap-5">
+                  <p className="text-default-500 text-sm">When do you want to visit <strong>{dest?.name}</strong>?</p>
+                  
+                  <Select
+                    label="Select Day"
+                    variant="bordered"
+                    selectedKeys={[addDay]}
+                    onSelectionChange={(keys) => setAddDay(Array.from(keys)[0] as string)}
+                    classNames={{ trigger: "rounded-xl bg-background" }}
+                  >
+                    {tripDays.map((day) => (
+                      <SelectItem key={day.index.toString()} textValue={day.label}>
+                        {day.label}
+                      </SelectItem>
+                    ))}
+                  </Select>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input type="time" label="Start Time (Optional)" variant="bordered" value={addTime} onValueChange={setAddTime} classNames={{ inputWrapper: "rounded-xl bg-background" }} />
+                    <Input label="Duration" placeholder="e.g. 2h 30m" variant="bordered" value={addDuration} onValueChange={setAddDuration} classNames={{ inputWrapper: "rounded-xl bg-background" }} />
+                  </div>
+                </ModalBody>
+                <ModalFooter className="px-6 pb-6">
+                  <Button color="danger" variant="light" onPress={onClose} className="font-bold">Cancel</Button>
+                  <Button color="primary" onPress={() => handleConfirmAdd(onClose)} className="font-bold rounded-xl shadow-lg">
+                    Add to Itinerary
+                  </Button>
+                </ModalFooter>
+              </>
+            );
+          }}
+        </ModalContent>
+      </Modal>
     </>
   );
 }
