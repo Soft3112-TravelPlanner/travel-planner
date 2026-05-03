@@ -26,20 +26,30 @@ import { motion, AnimatePresence } from "framer-motion";
 
 // React Icons
 import {
+  IoMap,
+  IoCafeOutline,
+  IoFootstepsOutline,
+  IoPeopleOutline,
+  IoLibraryOutline,
+  IoHourglassOutline,
+  IoRestaurantOutline,
+  IoBagHandleOutline,
+  IoHeartOutline,
+  IoCompassOutline,
   IoSearchOutline,
   IoLocationOutline,
   IoStar,
   IoHeart,
-  IoHeartOutline,
   IoAdd,
   IoCheckmarkOutline,
   IoFilterOutline,
-  IoMap,
 } from "react-icons/io5";
-import { destinations } from "@/data";
+import { getAllDestinations } from "@/utils/destinations";
+import { MOODS } from "@/data";
+import { REVIEWS_STORAGE_KEY } from "@/constants/storage";
+import { DestinationModal } from "@/components/destinationModal";
 import { useDebounce } from "@/hooks/useDebounce";
 import type { Destination } from "@/interfaces";
-import { DestinationModal } from "@/components/destinationModal";
 
 export const Route = createFileRoute("/_app/search/")({
   component: SearchComponent,
@@ -49,16 +59,26 @@ function SearchComponent() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQuery = useDebounce(searchQuery, 500);
 
+  const destinations = useMemo(() => getAllDestinations(), []);
+
   // Bütçe Aralığı State'i: [minValue, maxValue]
-  const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 20000]);
+  const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 100000]);
+  const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
 
   // Ekleme Modalı State'leri
-  const { isOpen: isAddOpen, onOpen: onAddOpen, onOpenChange: onAddOpenChange } = useDisclosure();
-  const [pendingAdd, setPendingAdd] = useState<{ destId: string | number, tripId: string } | null>(null);
+  const {
+    isOpen: isAddOpen,
+    onOpen: onAddOpen,
+    onOpenChange: onAddOpenChange,
+  } = useDisclosure();
+  const [pendingAdd, setPendingAdd] = useState<{
+    destId: string | number;
+    tripId: string;
+  } | null>(null);
   const [addDay, setAddDay] = useState("0");
   const [addTime, setAddTime] = useState("");
   const [addDuration, setAddDuration] = useState("");
@@ -77,6 +97,15 @@ function SearchComponent() {
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem("travel-planner-favorites");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [reviews, setReviews] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -105,7 +134,7 @@ function SearchComponent() {
       date.setDate(start.getDate() + i);
       return {
         index: i,
-        label: `Day ${i + 1} (${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})`
+        label: `Day ${i + 1} (${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })})`,
       };
     });
   };
@@ -121,21 +150,39 @@ function SearchComponent() {
   const handleConfirmAdd = (onClose: () => void) => {
     if (!pendingAdd) return;
     const { destId, tripId } = pendingAdd;
-    const dest = destinations.find(d => String(d.id) === String(destId));
-    if (!dest) return;
+
+    let title = "";
+    let lat: number | undefined;
+    let lng: number | undefined;
+
+    if (destId.toString().startsWith("custom_") && customItemToAdd) {
+      title = customItemToAdd.name;
+      lat = customItemToAdd.lat;
+      lng = customItemToAdd.lng;
+    } else {
+      const dest = destinations.find((d) => String(d.id) === String(destId));
+      if (!dest) return;
+      title = dest.name;
+      lat = dest.coordinates.lat;
+      lng = dest.coordinates.lng;
+    }
 
     const updatedTrips = trips.map((trip) => {
       if (String(trip.id) === tripId) {
         const plannedActivities = trip.plannedActivities || [];
         const newActivity = {
           id: Date.now().toString(),
-          title: dest.name,
+          title: title,
           startTime: addTime,
           duration: addDuration,
           dayIndex: Number(addDay),
+          lat: lat,
+          lng: lng,
         };
         // Saat sırasına göre diz
-        const newActs = [...plannedActivities, newActivity].sort((a, b) => (a.startTime || "24:00").localeCompare(b.startTime || "24:00"));
+        const newActs = [...plannedActivities, newActivity].sort((a, b) =>
+          (a.startTime || "24:00").localeCompare(b.startTime || "24:00"),
+        );
         return { ...trip, plannedActivities: newActs };
       }
       return trip;
@@ -143,10 +190,56 @@ function SearchComponent() {
 
     setTrips(updatedTrips);
     localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setAddedStatus((prev) => ({ ...prev, [destId]: true }));
-    setTimeout(() => setAddedStatus((prev) => ({ ...prev, [destId]: false })), 2000);
+    if (!destId.toString().startsWith("custom_")) {
+      setAddedStatus((prev) => ({ ...prev, [destId]: true }));
+      setTimeout(
+        () => setAddedStatus((prev) => ({ ...prev, [destId]: false })),
+        2000,
+      );
+    }
+    setCustomItemToAdd(null);
     onClose();
   };
+
+  const handleQuickAdd = (item: {
+    name: string;
+    lat?: number;
+    lng?: number;
+  }) => {
+    // We need to know which trip to add to.
+    // If there's only one trip, we can default to it.
+    // Otherwise, we might need a way to select a trip.
+    // For simplicity, if there's only one trip, we use it. If more, we use the first one or ask.
+    // Given the context of "Quick Add", let's use the first trip found or show the same selection if needed.
+    // Actually, I'll repurpose handleInitiateAdd to work with custom names/coords.
+
+    // Create a pseudo-destination ID for the item or just pass the data
+    const mockDestId = `custom_${item.name}_${Date.now()}`;
+    // Store custom item data temporarily if needed, but handleInitiateAdd currently uses `destinations.find`.
+    // I should modify handleInitiateAdd and handleConfirmAdd to support custom items.
+
+    setCustomItemToAdd(item);
+    if (trips.length === 1) {
+      handleInitiateAdd(mockDestId, trips[0].id);
+    } else if (trips.length > 1) {
+      // If multiple trips, we need to know which one.
+      // I'll add a state to track that we are adding a custom item.
+      setPendingCustomAdd(item);
+    } else {
+      alert("Please create a trip first!");
+    }
+  };
+
+  const [customItemToAdd, setCustomItemToAdd] = useState<{
+    name: string;
+    lat?: number;
+    lng?: number;
+  } | null>(null);
+  const [pendingCustomAdd, setPendingCustomAdd] = useState<{
+    name: string;
+    lat?: number;
+    lng?: number;
+  } | null>(null);
 
   const handleOpenModal = (dest: Destination) => {
     setSelectedDest(dest);
@@ -172,8 +265,14 @@ function SearchComponent() {
         dest.estimatedBudget <= budgetRange[1],
     );
 
+    if (selectedMoods.length > 0) {
+      result = result.filter((dest) =>
+        selectedMoods.every((mood) => dest.moods?.includes(mood)),
+      );
+    }
+
     return result;
-  }, [debouncedQuery, budgetRange]);
+  }, [debouncedQuery, budgetRange, selectedMoods, destinations]);
 
   return (
     <>
@@ -209,21 +308,67 @@ function SearchComponent() {
                   />
                 }
                 classNames={{
-                  inputWrapper: "bg-background border-2 border-divider shadow-md hover:border-primary/50 focus-within:!border-primary transition-all px-6 h-16",
+                  inputWrapper:
+                    "bg-background border-2 border-divider shadow-md hover:border-primary/50 focus-within:!border-primary transition-all px-6 h-16",
                   input: "text-lg",
                 }}
               />
-              <Button 
-                isIconOnly 
-                radius="full" 
-                size="lg" 
+              <Button
+                isIconOnly
+                radius="full"
+                size="lg"
                 variant={showFilters ? "solid" : "bordered"}
                 color={showFilters ? "primary" : "default"}
                 className="h-16 w-16 border-2"
                 onPress={() => setShowFilters(!showFilters)}
+                aria-label="Toggle Filters"
               >
-                <IoFilterOutline size={24} />
+                <div className="relative">
+                  <IoFilterOutline size={24} />
+                  {(budgetRange[0] > 0 || budgetRange[1] < 100000 || selectedMoods.length > 0) && (
+                    <span className="absolute -top-2 -right-2 w-3 h-3 bg-danger rounded-full border-2 border-background" />
+                  )}
+                </div>
               </Button>
+            </div>
+
+            {/* Mood Quick Filters */}
+            <div className="flex gap-3 overflow-x-auto pb-4 pt-2 no-scrollbar snap-x">
+              {MOODS.map((mood) => {
+                const isSelected = selectedMoods.includes(mood);
+                const Icon = {
+                  Adventure: IoCompassOutline,
+                  Relaxing: IoCafeOutline,
+                  Family: IoPeopleOutline,
+                  Cultural: IoLibraryOutline,
+                  History: IoHourglassOutline,
+                  Foodie: IoRestaurantOutline,
+                  Shopping: IoBagHandleOutline,
+                  Romantic: IoHeartOutline,
+                }[mood] || IoCompassOutline;
+
+                return (
+                  <Button
+                    key={mood}
+                    variant={isSelected ? "solid" : "flat"}
+                    color={isSelected ? "primary" : "default"}
+                    radius="full"
+                    className={`font-bold flex-shrink-0 snap-start h-12 px-6 ${
+                      !isSelected ? "bg-background border-2 border-divider hover:border-primary/50" : "shadow-lg shadow-primary/30"
+                    }`}
+                    startContent={<Icon size={20} />}
+                    onPress={() => {
+                      setSelectedMoods(prev => 
+                        prev.includes(mood) 
+                          ? prev.filter(m => m !== mood) 
+                          : [...prev, mood]
+                      );
+                    }}
+                  >
+                    {mood}
+                  </Button>
+                );
+              })}
             </div>
 
             <AnimatePresence>
@@ -240,7 +385,11 @@ function SearchComponent() {
                         <span className="text-sm font-bold uppercase tracking-wider text-default-600">
                           Budget Range
                         </span>
-                        <Chip variant="flat" color="primary" className="font-mono">
+                        <Chip
+                          variant="flat"
+                          color="primary"
+                          className="font-mono"
+                        >
                           ${budgetRange[0]} - ${budgetRange[1]}
                         </Chip>
                       </div>
@@ -308,7 +457,7 @@ function SearchComponent() {
                           removeWrapper
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        
+
                         {/* Tags */}
                         <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
                           <Button
@@ -316,14 +465,20 @@ function SearchComponent() {
                             radius="full"
                             size="sm"
                             className={`backdrop-blur-md shadow-lg transition-colors ${
-                              isFavorite ? "bg-danger text-white" : "bg-white/80 text-black hover:bg-white"
+                              isFavorite
+                                ? "bg-danger text-white"
+                                : "bg-white/80 text-black hover:bg-white"
                             }`}
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleFavorite(dest.id);
                             }}
                           >
-                            {isFavorite ? <IoHeart size={18} /> : <IoHeartOutline size={18} />}
+                            {isFavorite ? (
+                              <IoHeart size={18} />
+                            ) : (
+                              <IoHeartOutline size={18} />
+                            )}
                           </Button>
                         </div>
 
@@ -371,28 +526,38 @@ function SearchComponent() {
                           {trips.length > 0 && (
                             <Dropdown placement="bottom-end">
                               <DropdownTrigger>
-                                <Button 
-                                  variant="flat" 
-                                  color={addedStatus[dest.id] ? "success" : "default"} 
+                                <Button
+                                  variant="flat"
+                                  color={
+                                    addedStatus[dest.id] ? "success" : "default"
+                                  }
                                   isIconOnly
                                   className="rounded-2xl"
                                 >
-                                  {addedStatus[dest.id] ? <IoCheckmarkOutline size={20} /> : <IoAdd size={20} />}
+                                  {addedStatus[dest.id] ? (
+                                    <IoCheckmarkOutline size={20} />
+                                  ) : (
+                                    <IoAdd size={20} />
+                                  )}
                                 </Button>
                               </DropdownTrigger>
-                              <DropdownMenu 
-                                aria-label="Add to Trip" 
-                                onAction={(key) => handleInitiateAdd(dest.id, String(key))}
+                              <DropdownMenu
+                                aria-label="Add to Trip"
+                                onAction={(key) =>
+                                  handleInitiateAdd(dest.id, String(key))
+                                }
                               >
                                 {trips.map((trip) => (
-                                  <DropdownItem key={trip.id} startContent={<IoMap size={18} />}>
+                                  <DropdownItem
+                                    key={trip.id}
+                                    startContent={<IoMap size={18} />}
+                                  >
                                     {trip.name}
                                   </DropdownItem>
                                 ))}
                               </DropdownMenu>
                             </Dropdown>
-
-)}
+                          )}
                         </div>
                       </CardBody>
                     </Card>
@@ -401,7 +566,7 @@ function SearchComponent() {
               })}
             </div>
           ) : (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="flex flex-col items-center justify-center py-32 text-center"
@@ -409,17 +574,21 @@ function SearchComponent() {
               <div className="bg-default-100 p-8 rounded-full mb-6">
                 <IoSearchOutline size={48} className="text-default-300" />
               </div>
-              <h3 className="text-2xl font-bold mb-2">No matching destinations</h3>
+              <h3 className="text-2xl font-bold mb-2">
+                No matching destinations
+              </h3>
               <p className="text-default-500 max-w-sm">
-                Try adjusting your filters or searching for something else to find your next adventure.
+                Try adjusting your filters or searching for something else to
+                find your next adventure.
               </p>
-              <Button 
-                variant="light" 
-                color="primary" 
+              <Button
+                variant="light"
+                color="primary"
                 className="mt-4 font-bold"
                 onPress={() => {
                   setSearchQuery("");
-                  setBudgetRange([0, 20000]);
+                  setBudgetRange([0, 100000]);
+                  setSelectedMoods([]);
                 }}
               >
                 Clear all filters
@@ -433,14 +602,27 @@ function SearchComponent() {
         destination={selectedDest}
         isOpen={isOpen}
         onOpenChange={onOpenChange}
+        onQuickAdd={handleQuickAdd}
       />
 
       {/* Add Activity Modal */}
-      <Modal isOpen={isAddOpen} onOpenChange={onAddOpenChange} placement="center" backdrop="blur">
+      <Modal
+        isOpen={isAddOpen}
+        onOpenChange={onAddOpenChange}
+        placement="center"
+        backdrop="blur"
+      >
         <ModalContent className="rounded-[2.5rem] p-2">
           {(onClose) => {
-            const trip = trips.find(t => t.id === pendingAdd?.tripId);
-            const dest = destinations.find(d => String(d.id) === String(pendingAdd?.destId));
+            const trip = trips.find((t) => t.id === pendingAdd?.tripId);
+            const isCustom = pendingAdd?.destId
+              .toString()
+              .startsWith("custom_");
+            const itemName = isCustom
+              ? customItemToAdd?.name
+              : destinations.find(
+                  (d) => String(d.id) === String(pendingAdd?.destId),
+                )?.name;
             const tripDays = trip ? getTripDays(trip) : [];
 
             return (
@@ -449,30 +631,62 @@ function SearchComponent() {
                   Add to {trip?.name}
                 </ModalHeader>
                 <ModalBody className="px-6 py-4 flex flex-col gap-5">
-                  <p className="text-default-500 text-sm">When do you want to visit <strong>{dest?.name}</strong>?</p>
-                  
+                  <p className="text-default-500 text-sm">
+                    When do you want to visit <strong>{itemName}</strong>?
+                  </p>
+
                   <Select
                     label="Select Day"
                     variant="bordered"
                     selectedKeys={[addDay]}
-                    onSelectionChange={(keys) => setAddDay(Array.from(keys)[0] as string)}
+                    onSelectionChange={(keys) =>
+                      setAddDay(Array.from(keys)[0] as string)
+                    }
                     classNames={{ trigger: "rounded-xl bg-background" }}
                   >
                     {tripDays.map((day) => (
-                      <SelectItem key={day.index.toString()} textValue={day.label}>
+                      <SelectItem
+                        key={day.index.toString()}
+                        textValue={day.label}
+                      >
                         {day.label}
                       </SelectItem>
                     ))}
                   </Select>
 
                   <div className="grid grid-cols-2 gap-4">
-                    <Input type="time" label="Start Time (Optional)" variant="bordered" value={addTime} onValueChange={setAddTime} classNames={{ inputWrapper: "rounded-xl bg-background" }} />
-                    <Input label="Duration" placeholder="e.g. 2h 30m" variant="bordered" value={addDuration} onValueChange={setAddDuration} classNames={{ inputWrapper: "rounded-xl bg-background" }} />
+                    <Input
+                      type="time"
+                      label="Start Time (Optional)"
+                      variant="bordered"
+                      value={addTime}
+                      onValueChange={setAddTime}
+                      classNames={{ inputWrapper: "rounded-xl bg-background" }}
+                    />
+                    <Input
+                      label="Duration"
+                      placeholder="e.g. 2h 30m"
+                      variant="bordered"
+                      value={addDuration}
+                      onValueChange={setAddDuration}
+                      classNames={{ inputWrapper: "rounded-xl bg-background" }}
+                    />
                   </div>
                 </ModalBody>
                 <ModalFooter className="px-6 pb-6">
-                  <Button color="danger" variant="light" onPress={onClose} className="font-bold">Cancel</Button>
-                  <Button color="primary" onPress={() => handleConfirmAdd(onClose)} className="font-bold rounded-xl shadow-lg">
+                  <Button
+                    color="danger"
+                    variant="light"
+                    onPress={onClose}
+                    className="font-bold"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    color="primary"
+                    onPress={() => handleConfirmAdd(onClose)}
+                    className="font-bold rounded-xl shadow-lg"
+                  >
                     Add to Itinerary
                   </Button>
                 </ModalFooter>

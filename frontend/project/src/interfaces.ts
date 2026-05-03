@@ -56,4 +56,5 @@ export interface Destination {
   localRestaurants: Restaurant[];
   averageRating?: number;
   estimatedBudget: number;
+  moods: string[];
 }
