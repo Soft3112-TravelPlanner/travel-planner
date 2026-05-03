@@ -23,6 +23,7 @@ import {
   IoWalletOutline, // Bütçe ikonu eklendi
   IoStarOutline,
   IoChatbubblesOutline,
+  IoTrash,
 } from "react-icons/io5";
 
 // Leaflet bileşenleri
@@ -263,6 +264,38 @@ export const DestinationModal = ({
     });
     return allLandmarks.sort((a, b) => a.distance - b.distance);
   }, [destination]);
+
+  const isAdmin = localStorage.getItem("travel-planner-is-admin") === "true";
+
+  const handleRemoveReview = (reviewId: string) => {
+    if (!window.confirm("Are you sure you want to delete this review?")) return;
+
+    try {
+      const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
+      if (stored) {
+        const allReviews = JSON.parse(stored);
+        const deletedReview = allReviews.find((r: any) => String(r.id) === String(reviewId));
+        const updated = allReviews.filter((r: any) => String(r.id) !== String(reviewId));
+        localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(updated));
+        setReviews(updated);
+
+        // Audit log aligned with Admin Panel structure
+        const logEntry = {
+          id: Date.now().toString(),
+          action: "DELETE_REVIEW",
+          targetId: reviewId,
+          targetContent: deletedReview?.text || "N/A",
+          adminName: "Admin",
+          timestamp: new Date().toISOString(),
+        };
+        const storedLogs = localStorage.getItem("travel-planner-moderation-logs");
+        const logs = storedLogs ? JSON.parse(storedLogs) : [];
+        localStorage.setItem("travel-planner-moderation-logs", JSON.stringify([logEntry, ...logs]));
+      }
+    } catch (err) {
+      console.error("Failed to delete review:", err);
+    }
+  };
 
   return (
     <Modal
@@ -597,13 +630,27 @@ export const DestinationModal = ({
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex gap-1 text-warning bg-warning/10 px-3 py-1.5 rounded-xl text-lg">
-                                  {[...Array(5)].map((_, i) =>
-                                    i < review.rating ? (
-                                      <IoStar key={i} />
-                                    ) : (
-                                      <IoStarOutline key={i} />
-                                    ),
+                                <div className="flex gap-4 items-start">
+                                  <div className="flex gap-1 text-warning bg-warning/10 px-3 py-1.5 rounded-xl text-lg">
+                                    {[...Array(5)].map((_, i) =>
+                                      i < review.rating ? (
+                                        <IoStar key={i} />
+                                      ) : (
+                                        <IoStarOutline key={i} />
+                                      ),
+                                    )}
+                                  </div>
+                                  {isAdmin && (
+                                    <Button
+                                      isIconOnly
+                                      size="sm"
+                                      variant="flat"
+                                      color="danger"
+                                      className="rounded-xl"
+                                      onPress={() => handleRemoveReview(review.id)}
+                                    >
+                                      <IoTrash size={16} />
+                                    </Button>
                                   )}
                                 </div>
                               </div>
