@@ -206,6 +206,7 @@ function RouteComponent() {
             </div>
             <Input
               type="number"
+              step="any"
               variant="underlined"
               value={totalBudget.toString()}
               onValueChange={(v) => setTotalBudget(parseFloat(v) || 0)}
@@ -371,13 +372,13 @@ function RouteComponent() {
                 <Input
                   label="Amount"
                   type="number"
+                  step="any"
                   placeholder="0.00"
                   value={amount}
                   onValueChange={setAmount}
                   variant="bordered"
                   startContent={<span className="text-default-400 text-sm">$</span>}
                   isRequired
-                  step="0.01"
                 />
                 <Select
                   label="Category"

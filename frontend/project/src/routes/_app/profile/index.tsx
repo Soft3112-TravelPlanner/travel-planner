@@ -21,7 +21,9 @@ import {
   IoFingerPrintOutline,
   IoSaveOutline,
   IoTrashOutline,
+  IoShieldCheckmarkOutline,
 } from "react-icons/io5";
+import { Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 
 export const Route = createFileRoute("/_app/profile/")({
@@ -66,6 +68,13 @@ function RouteComponent() {
   const [draft, setDraft] = useState<ProfileData>(defaultProfileData);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem("travel-planner-is-admin") === "true");
+
+  const toggleAdmin = () => {
+    const newState = !isAdmin;
+    setIsAdmin(newState);
+    localStorage.setItem("travel-planner-is-admin", String(newState));
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -219,6 +228,47 @@ function RouteComponent() {
           </div>
         </motion.div>
       </section>
+
+      {/* Admin Quick Access */}
+      <motion.section
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Card className="border-none bg-primary-50 border-2 border-primary/20 rounded-[2rem] p-4 shadow-lg shadow-primary/5">
+          <CardBody className="flex flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-primary/30">
+                <IoShieldCheckmarkOutline size={24} />
+              </div>
+              <div>
+                <h4 className="font-bold text-lg text-primary-900">Admin Privileges</h4>
+                <p className="text-primary-600 text-sm">Toggle administrative features for catalog management.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {isAdmin && (
+                <Button 
+                  as={Link} 
+                  to="/admin" 
+                  color="primary" 
+                  variant="solid" 
+                  className="font-bold rounded-xl"
+                >
+                  Admin Panel
+                </Button>
+              )}
+              <Button 
+                variant={isAdmin ? "flat" : "bordered"} 
+                color={isAdmin ? "primary" : "default"}
+                className="font-bold rounded-xl border-2"
+                onPress={toggleAdmin}
+              >
+                {isAdmin ? "Admin Mode: ON" : "Enable Admin Mode"}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      </motion.section>
 
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-12">
         {/* Profile Sidebar */}

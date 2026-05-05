@@ -16,6 +16,7 @@ import { Route as AppSearchIndexRouteImport } from './routes/_app/search/index'
 import { Route as AppProfileIndexRouteImport } from './routes/_app/profile/index'
 import { Route as AppFavoritesIndexRouteImport } from './routes/_app/favorites/index'
 import { Route as AppBudgetIndexRouteImport } from './routes/_app/budget/index'
+import { Route as AppAdminIndexRouteImport } from './routes/_app/admin/index'
 import { Route as AppAuthRegisterIndexRouteImport } from './routes/_app/auth/register/index'
 import { Route as AppAuthLogoutIndexRouteImport } from './routes/_app/auth/logout/index'
 import { Route as AppAuthLoginIndexRouteImport } from './routes/_app/auth/login/index'
@@ -54,6 +55,11 @@ const AppBudgetIndexRoute = AppBudgetIndexRouteImport.update({
   path: '/budget/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminIndexRoute = AppAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAuthRegisterIndexRoute = AppAuthRegisterIndexRouteImport.update({
   id: '/auth/register/',
   path: '/auth/register/',
@@ -72,6 +78,7 @@ const AppAuthLoginIndexRoute = AppAuthLoginIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/admin/': typeof AppAdminIndexRoute
   '/budget/': typeof AppBudgetIndexRoute
   '/favorites/': typeof AppFavoritesIndexRoute
   '/profile/': typeof AppProfileIndexRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/admin': typeof AppAdminIndexRoute
   '/budget': typeof AppBudgetIndexRoute
   '/favorites': typeof AppFavoritesIndexRoute
   '/profile': typeof AppProfileIndexRoute
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/budget/': typeof AppBudgetIndexRoute
   '/_app/favorites/': typeof AppFavoritesIndexRoute
   '/_app/profile/': typeof AppProfileIndexRoute
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin/'
     | '/budget/'
     | '/favorites/'
     | '/profile/'
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/budget'
     | '/favorites'
     | '/profile'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_app/'
+    | '/_app/admin/'
     | '/_app/budget/'
     | '/_app/favorites/'
     | '/_app/profile/'
@@ -197,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBudgetIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/': {
+      id: '/_app/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AppAdminIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/auth/register/': {
       id: '/_app/auth/register/'
       path: '/auth/register'
@@ -223,6 +242,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
+  AppAdminIndexRoute: typeof AppAdminIndexRoute
   AppBudgetIndexRoute: typeof AppBudgetIndexRoute
   AppFavoritesIndexRoute: typeof AppFavoritesIndexRoute
   AppProfileIndexRoute: typeof AppProfileIndexRoute
@@ -235,6 +255,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
+  AppAdminIndexRoute: AppAdminIndexRoute,
   AppBudgetIndexRoute: AppBudgetIndexRoute,
   AppFavoritesIndexRoute: AppFavoritesIndexRoute,
   AppProfileIndexRoute: AppProfileIndexRoute,

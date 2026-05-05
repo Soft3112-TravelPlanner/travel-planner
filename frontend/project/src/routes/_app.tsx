@@ -1,7 +1,7 @@
 import { Navbar, NavbarBrand, NavbarContent, NavbarItem, Button, HeroUIProvider } from "@heroui/react";
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { useTheme } from "@heroui/use-theme";
-import { IoAirplane, IoSearch, IoHeart, IoMap, IoPerson, IoLogOut, IoWallet } from "react-icons/io5";
+import { IoAirplane, IoSearch, IoHeart, IoMap, IoPerson, IoLogOut, IoWallet, IoShieldCheckmark } from "react-icons/io5";
 import { useState, useEffect } from "react";
 import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
@@ -12,6 +12,23 @@ export const Route = createFileRoute("/_app")({
 export function RouteComponent() {
   useTheme(); // Initialize theme
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = () => {
+      setIsAdmin(localStorage.getItem("travel-planner-is-admin") === "true");
+    };
+    checkAdmin();
+    // Also listen for storage changes in same window
+    window.addEventListener("storage", checkAdmin);
+    // Custom event for same-page updates
+    const interval = setInterval(checkAdmin, 1000); 
+    
+    return () => {
+      window.removeEventListener("storage", checkAdmin);
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const profileStr = localStorage.getItem(PROFILE_STORAGE_KEY);
@@ -68,6 +85,14 @@ export function RouteComponent() {
                 Budget
               </Link>
             </NavbarItem>
+            {isAdmin && (
+              <NavbarItem>
+                <Link to="/admin" className="flex items-center gap-2 text-primary hover:text-primary-600 transition-colors font-bold">
+                  <IoShieldCheckmark size={18} />
+                  Admin
+                </Link>
+              </NavbarItem>
+            )}
           </NavbarContent>
 
           <NavbarContent justify="end">
