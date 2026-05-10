@@ -123,13 +123,25 @@ function AdminComponent() {
 
       localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(updatedReviews));
 
+      // Yapan adminin e-posta bilgisini bulma
+      let adminName = "Admin";
+      try {
+        const profileStr = localStorage.getItem("travel-planner-profile");
+        if (profileStr) {
+          const profile = JSON.parse(profileStr);
+          if (profile.user && profile.user.email) {
+            adminName = profile.user.email.split('@')[0];
+          }
+        }
+      } catch(e) {}
+
       // Log moderation action
       const newLog = {
         id: Date.now().toString(),
         action: "DELETE_REVIEW",
         targetId: reviewId,
         targetContent: deletedReview?.text || "N/A",
-        adminName: "Admin",
+        adminName: adminName,
         timestamp: new Date().toISOString(),
       };
       const updatedLogs = [newLog, ...logs];
@@ -202,6 +214,12 @@ function AdminComponent() {
     }
 
     onPickerOpenChange();
+  };
+
+  // Hedef ID yerine hedefin adını getiren yardımcı fonksiyon
+  const getDestinationName = (id: string) => {
+    const dest = destinations.find((d) => String(d.id) === String(id));
+    return dest ? dest.name : id;
   };
 
   return (
@@ -332,7 +350,7 @@ function AdminComponent() {
                         <TableCell className="font-bold">
                           {review.userName}
                         </TableCell>
-                        <TableCell>{review.destinationId}</TableCell>
+                        <TableCell>{getDestinationName(review.destinationId)}</TableCell>
                         <TableCell className="max-w-xs truncate">
                           {review.text}
                         </TableCell>
