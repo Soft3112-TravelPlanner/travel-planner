@@ -34,7 +34,7 @@ import L from "leaflet";
 import type { Destination, Landmark } from "@/interfaces";
 import { destinations } from "@/data";
 import { IoAdd, IoFlashOutline } from "react-icons/io5";
-import { REVIEWS_STORAGE_KEY } from "@/constants/storage";
+import { REVIEWS_STORAGE_KEY, MODERATION_LOGS_KEY } from "@/constants/storage";
 
 // Distance helper
 function calculateDistance(
@@ -279,18 +279,30 @@ export const DestinationModal = ({
         localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(updated));
         setReviews(updated);
 
+        // Profil bilgisinden adminin adını (e-postasını) alıyoruz
+        let adminName = "Admin";
+        try {
+          const profileStr = localStorage.getItem("travel-planner-profile");
+          if (profileStr) {
+            const profile = JSON.parse(profileStr);
+            if (profile.user && profile.user.email) {
+              adminName = profile.user.email.split('@')[0];
+            }
+          }
+        } catch(e) {}
+
         // Audit log aligned with Admin Panel structure
         const logEntry = {
           id: Date.now().toString(),
           action: "DELETE_REVIEW",
           targetId: reviewId,
           targetContent: deletedReview?.text || "N/A",
-          adminName: "Admin",
+          adminName: adminName,
           timestamp: new Date().toISOString(),
         };
-        const storedLogs = localStorage.getItem("travel-planner-moderation-logs");
+        const storedLogs = localStorage.getItem(MODERATION_LOGS_KEY);
         const logs = storedLogs ? JSON.parse(storedLogs) : [];
-        localStorage.setItem("travel-planner-moderation-logs", JSON.stringify([logEntry, ...logs]));
+        localStorage.setItem(MODERATION_LOGS_KEY, JSON.stringify([logEntry, ...logs]));
       }
     } catch (err) {
       console.error("Failed to delete review:", err);

@@ -25,6 +25,7 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  ScrollShadow,
 } from "@heroui/react";
 import {
   IoAdd,
@@ -1298,192 +1299,235 @@ function RouteComponent() {
       <Modal
         isOpen={isEditOpen}
         onOpenChange={onEditOpenChange}
-        placement="center"
+        size="4xl"
         backdrop="blur"
         scrollBehavior="inside"
+        classNames={{
+          base: "bg-background shadow-2xl rounded-[3rem] overflow-hidden border-none max-h-[90vh]",
+          header: "border-b-2 border-divider/50 px-8 py-6 z-40 bg-background/80 backdrop-blur-md sticky top-0",
+          footer: "border-t-2 border-divider/50 px-8 py-6 bg-background/80 backdrop-blur-md",
+          closeButton: "hover:bg-default-200 z-50 top-6 right-6 p-2 rounded-full bg-background/50 backdrop-blur-md",
+        }}
       >
-        <ModalContent className="rounded-[2.5rem] p-4">
-          {(onClose) => (
+        <ModalContent>
+          {(onClose) => {
+            const destForEdit = destinations.find(d => String(d.id) === editingTrip?.destinationId);
+            return (
             <>
-              <ModalHeader className="flex flex-col gap-1 text-2xl font-bold italic">
-                Edit Trip Details
+              <ModalHeader className="flex flex-col gap-1 pr-16">
+                <h2 className="text-3xl font-extrabold italic">
+                  Edit Trip: {editingTrip?.name}
+                </h2>
               </ModalHeader>
-              <ModalBody className="w-full py-4">
-                <Form
-                  id="edit-trip-form"
-                  validationBehavior="native"
-                  onSubmit={(e) => onEditSubmit(e, onClose)}
-                  className="flex flex-col gap-6 w-full"
-                >
-                  <Input
-                    isRequired
-                    name="name"
-                    label="Trip Name"
-                    defaultValue={editingTrip?.name}
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-
-                  {editingTrip && (
-                    <Select
-                      isRequired
-                      name="destinationId"
-                      label="Destination"
-                      defaultSelectedKeys={[editingTrip.destinationId]}
-                      variant="bordered"
-                      classNames={{ trigger: "rounded-2xl" }}
-                    >
-                      {destinations.map((dest) => (
-                        <SelectItem
-                          key={dest.id}
-                          textValue={`${dest.name} (${dest.city}, ${dest.country})`}
-                        >
-                          {dest.name} ({dest.city}, {dest.country})
-                        </SelectItem>
-                      ))}
-                    </Select>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      isRequired
-                      name="startDate"
-                      label="Start Date"
-                      type="date"
-                      placeholder=" "
-                      defaultValue={editingTrip?.startDate}
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <Input
-                      isRequired
-                      name="endDate"
-                      label="End Date"
-                      type="date"
-                      placeholder=" "
-                      defaultValue={editingTrip?.endDate}
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                  </div>
-
-                  <Divider />
-                  <h4 className="font-bold text-lg italic border-b border-divider pb-2">
-                    Accommodation (Optional)
-                  </h4>
-                  <Input
-                    name="hotelName"
-                    label="Hotel Name"
-                    placeholder="e.g. The Ritz"
-                    defaultValue={editingTrip?.accommodation?.hotelName}
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-                  <Input
-                    name="hotelAddress"
-                    label="Address"
-                    placeholder="e.g. 15 Place Vendôme, Paris"
-                    defaultValue={editingTrip?.accommodation?.address}
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      name="checkInDate"
-                      label="Check-in Date"
-                      type="date"
-                      placeholder=" "
-                      defaultValue={editingTrip?.accommodation?.checkInDate}
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <Input
-                      name="checkOutDate"
-                      label="Check-out Date"
-                      type="date"
-                      placeholder=" "
-                      defaultValue={editingTrip?.accommodation?.checkOutDate}
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                  </div>
-                  <Input
-                    name="confirmationId"
-                    label="Confirmation ID"
-                    placeholder="e.g. X123456789"
-                    defaultValue={editingTrip?.accommodation?.confirmationId}
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-
-                  <Divider />
-                  <h4 className="font-bold text-lg italic border-b border-divider pb-2">
-                    Transport Details (Optional)
-                  </h4>
-                  <Input
-                    name="carrier"
-                    label="Carrier (Airline/Train)"
-                    placeholder="e.g. Delta Airlines"
-                    defaultValue={editingTrip?.transport?.carrier}
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      name="departureTime"
-                      label="Departure Time"
-                      type="datetime-local"
-                      placeholder=" "
-                      defaultValue={editingTrip?.transport?.departureTime}
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <Input
-                      name="arrivalTime"
-                      label="Arrival Time"
-                      type="datetime-local"
-                      placeholder=" "
-                      defaultValue={editingTrip?.transport?.arrivalTime}
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      name="seatNumber"
-                      label="Seat Number"
-                      placeholder="e.g. 12A"
-                      defaultValue={editingTrip?.transport?.seatNumber}
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <div className="flex flex-col w-full gap-1">
-                      <Input
-                        name="ticketFile"
-                        label="Boarding Pass (Update)"
-                        type="file"
-                        accept="image/*,.pdf"
-                        variant="bordered"
-                        classNames={{ inputWrapper: "rounded-2xl" }}
+              <ModalBody className="p-0">
+                <ScrollShadow className="w-full" hideScrollBar>
+                  {destForEdit && (
+                    <div className="relative w-full h-[300px]">
+                      <img
+                        src={destForEdit.mainImageUrl}
+                        alt={destForEdit.name}
+                        className="w-full h-full object-cover rounded-none"
                       />
-                      {editingTrip?.transport?.ticketFile && (
-                        <span className="text-xs text-success px-2 font-medium">
-                          Ticket currently saved
-                        </span>
-                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                     </div>
+                  )}
+                  
+                  <div className={`px-8 pb-12 flex flex-col gap-8 ${destForEdit ? '-mt-12 relative z-10' : 'pt-8'}`}>
+                    <Form
+                      id="edit-trip-form"
+                      validationBehavior="native"
+                      onSubmit={(e) => onEditSubmit(e, onClose)}
+                      className="flex flex-col gap-8 w-full"
+                    >
+                      <Card className="border-none shadow-xl rounded-[2rem] p-4 w-full">
+                        <CardBody className="flex flex-col gap-6">
+                          <h4 className="text-xl font-bold italic flex items-center gap-2">
+                            <div className="w-1.5 h-6 bg-primary rounded-full" />
+                            General Info
+                          </h4>
+                          <Input
+                            isRequired
+                            name="name"
+                            label="Trip Name"
+                            defaultValue={editingTrip?.name}
+                            variant="bordered"
+                            classNames={{ inputWrapper: "rounded-2xl" }}
+                          />
+
+                          {editingTrip && (
+                            <Select
+                              isRequired
+                              name="destinationId"
+                              label="Destination"
+                              defaultSelectedKeys={[editingTrip.destinationId]}
+                              variant="bordered"
+                              classNames={{ trigger: "rounded-2xl" }}
+                            >
+                              {destinations.map((dest) => (
+                                <SelectItem
+                                  key={dest.id}
+                                  textValue={`${dest.name} (${dest.city}, ${dest.country})`}
+                                >
+                                  {dest.name} ({dest.city}, {dest.country})
+                                </SelectItem>
+                              ))}
+                            </Select>
+                          )}
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <Input
+                              isRequired
+                              name="startDate"
+                              label="Start Date"
+                              type="date"
+                              placeholder=" "
+                              defaultValue={editingTrip?.startDate}
+                              variant="bordered"
+                              classNames={{ inputWrapper: "rounded-2xl" }}
+                            />
+                            <Input
+                              isRequired
+                              name="endDate"
+                              label="End Date"
+                              type="date"
+                              placeholder=" "
+                              defaultValue={editingTrip?.endDate}
+                              variant="bordered"
+                              classNames={{ inputWrapper: "rounded-2xl" }}
+                            />
+                          </div>
+                        </CardBody>
+                      </Card>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <Card className="border-none shadow-xl rounded-[2rem] p-4">
+                          <CardBody className="flex flex-col gap-6">
+                            <h4 className="text-xl font-bold italic flex items-center gap-2">
+                              <div className="w-1.5 h-6 bg-secondary rounded-full" />
+                              Accommodation (Optional)
+                            </h4>
+                            <Input
+                              name="hotelName"
+                              label="Hotel Name"
+                              placeholder="e.g. The Ritz"
+                              defaultValue={editingTrip?.accommodation?.hotelName}
+                              variant="bordered"
+                              classNames={{ inputWrapper: "rounded-2xl" }}
+                            />
+                            <Input
+                              name="hotelAddress"
+                              label="Address"
+                              placeholder="e.g. 15 Place Vendôme, Paris"
+                              defaultValue={editingTrip?.accommodation?.address}
+                              variant="bordered"
+                              classNames={{ inputWrapper: "rounded-2xl" }}
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                              <Input
+                                name="checkInDate"
+                                label="Check-in"
+                                type="date"
+                                placeholder=" "
+                                defaultValue={editingTrip?.accommodation?.checkInDate}
+                                variant="bordered"
+                                classNames={{ inputWrapper: "rounded-2xl" }}
+                              />
+                              <Input
+                                name="checkOutDate"
+                                label="Check-out"
+                                type="date"
+                                placeholder=" "
+                                defaultValue={editingTrip?.accommodation?.checkOutDate}
+                                variant="bordered"
+                                classNames={{ inputWrapper: "rounded-2xl" }}
+                              />
+                            </div>
+                            <Input
+                              name="confirmationId"
+                              label="Confirmation ID"
+                              placeholder="e.g. X123456789"
+                              defaultValue={editingTrip?.accommodation?.confirmationId}
+                              variant="bordered"
+                              classNames={{ inputWrapper: "rounded-2xl" }}
+                            />
+                          </CardBody>
+                        </Card>
+
+                        <Card className="border-none shadow-xl rounded-[2rem] p-4">
+                          <CardBody className="flex flex-col gap-6">
+                            <h4 className="text-xl font-bold italic flex items-center gap-2">
+                              <div className="w-1.5 h-6 bg-warning rounded-full" />
+                              Transport Details (Optional)
+                            </h4>
+                            <Input
+                              name="carrier"
+                              label="Carrier (Airline/Train)"
+                              placeholder="e.g. Delta Airlines"
+                              defaultValue={editingTrip?.transport?.carrier}
+                              variant="bordered"
+                              classNames={{ inputWrapper: "rounded-2xl" }}
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                              <Input
+                                name="departureTime"
+                                label="Departure Time"
+                                type="datetime-local"
+                                placeholder=" "
+                                defaultValue={editingTrip?.transport?.departureTime}
+                                variant="bordered"
+                                classNames={{ inputWrapper: "rounded-2xl" }}
+                              />
+                              <Input
+                                name="arrivalTime"
+                                label="Arrival Time"
+                                type="datetime-local"
+                                placeholder=" "
+                                defaultValue={editingTrip?.transport?.arrivalTime}
+                                variant="bordered"
+                                classNames={{ inputWrapper: "rounded-2xl" }}
+                              />
+                            </div>
+                            <div className="grid grid-cols-1 gap-4">
+                              <Input
+                                name="seatNumber"
+                                label="Seat Number"
+                                placeholder="e.g. 12A"
+                                defaultValue={editingTrip?.transport?.seatNumber}
+                                variant="bordered"
+                                classNames={{ inputWrapper: "rounded-2xl" }}
+                              />
+                              <div className="flex flex-col w-full gap-1">
+                                <Input
+                                  name="ticketFile"
+                                  label="Boarding Pass (Update)"
+                                  type="file"
+                                  accept="image/*,.pdf"
+                                  variant="bordered"
+                                  classNames={{ inputWrapper: "rounded-2xl" }}
+                                />
+                                {editingTrip?.transport?.ticketFile && (
+                                  <span className="text-xs text-success px-2 font-medium">
+                                    Ticket currently saved
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </CardBody>
+                        </Card>
+                      </div>
+                    </Form>
                   </div>
-                </Form>
+                </ScrollShadow>
               </ModalBody>
-              <ModalFooter className="w-full flex justify-between pt-6">
+              <ModalFooter className="w-full flex justify-between">
                 <Button
                   color="danger"
                   variant="flat"
-                  isIconOnly
-                  className="rounded-xl"
+                  className="font-bold rounded-xl px-6"
                   onPress={() => onDeleteTrip(editingTrip!.id, onClose)}
+                  startContent={<IoTrashOutline size={18} />}
                 >
-                  <IoTrashOutline size={22} />
+                  Delete Trip
                 </Button>
                 <div className="flex gap-3">
                   <Button
@@ -1505,7 +1549,7 @@ function RouteComponent() {
                 </div>
               </ModalFooter>
             </>
-          )}
+          )}}
         </ModalContent>
       </Modal>
 
@@ -1792,6 +1836,9 @@ function RouteComponent() {
         placement="center"
         backdrop="blur"
         scrollBehavior="inside"
+        classNames={{
+          closeButton: "z-50 top-6 right-6 p-2 rounded-full bg-default-100 hover:bg-default-200",
+        }}
       >
         <ModalContent className="rounded-[2.5rem] p-2">
           {(onClose) => {
@@ -1821,7 +1868,7 @@ function RouteComponent() {
 
             return (
               <>
-                <ModalHeader className="flex flex-col gap-1 px-6 pt-6 relative">
+                <ModalHeader className="flex flex-col gap-1 px-6 pt-6 relative pr-16">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-2xl font-bold italic flex items-center gap-2">
