@@ -1,5 +1,7 @@
 import type { Destination } from "./interfaces";
 
+export const MOODS = ["Adventure", "Relaxing", "Family", "Cultural", "History", "Foodie", "Shopping", "Romantic"];
+
 export const destinations: Destination[] = [
   {
     id: "1",
@@ -44,6 +46,49 @@ export const destinations: Destination[] = [
       },
     ],
     estimatedBudget: 150,
+    moods: ["History", "Cultural", "Family"],
+  },
+  {
+    id: "4",
+    name: "Galata & Beyoglu",
+    city: "Istanbul",
+    country: "Turkey",
+    description:
+      "A vibrant district known for its historic tower, narrow streets, and lively atmosphere.",
+    mainImageUrl:
+      "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?auto=format&fit=crop&w=800",
+    coordinates: { lat: 41.0256, lng: 28.9741 },
+    landmarks: [
+      {
+        id: "l5",
+        name: "Galata Tower",
+        type: "Historical Landmark",
+        description: "A medieval stone tower offering panoramic views of the city.",
+        imageUrl: "https://images.unsplash.com/photo-1541432901042-2d8bd64b4a9b?auto=format&fit=crop&w=400",
+        coordinates: { lat: 41.0256, lng: 28.9741 },
+      },
+      {
+        id: "l6",
+        name: "Istiklal Avenue",
+        type: "Street",
+        description: "One of the most famous avenues in Istanbul, full of shops and cafes.",
+        coordinates: { lat: 41.0333, lng: 28.9775 },
+      }
+    ],
+    localRestaurants: [
+      {
+        id: "r4",
+        name: "Mikla",
+        cuisine: "New Anatolian",
+        rating: 4.6,
+        address: "The Marmara Pera, Mesrutiyet Cd. No:15",
+        priceRange: "$$$$",
+        coordinates: { lat: 41.0305, lng: 28.9748 },
+        specialtyDish: "Lamb Shank",
+      }
+    ],
+    estimatedBudget: 250,
+    moods: ["Foodie", "Shopping", "Romantic"],
   },
   {
     id: "2",
@@ -78,6 +123,28 @@ export const destinations: Destination[] = [
       },
     ],
     estimatedBudget: 1500,
+    moods: ["History", "Cultural", "Adventure"],
+  },
+  {
+    id: "5",
+    name: "Trastevere",
+    city: "Rome",
+    country: "Italy",
+    description: "A charming medieval neighborhood with narrow cobblestone streets.",
+    mainImageUrl: "https://images.unsplash.com/photo-1525874684015-58379d421a52?auto=format&fit=crop&w=800",
+    coordinates: { lat: 41.8893, lng: 12.4691 },
+    landmarks: [
+      {
+        id: "l7",
+        name: "Santa Maria in Trastevere",
+        type: "Basilica",
+        description: "One of the oldest churches in Rome, known for its mosaics.",
+        coordinates: { lat: 41.8893, lng: 12.4691 },
+      }
+    ],
+    localRestaurants: [],
+    estimatedBudget: 120,
+    moods: ["Relaxing", "Romantic", "Foodie"],
   },
   {
     id: "3",
@@ -112,5 +179,6 @@ export const destinations: Destination[] = [
       },
     ],
     estimatedBudget: 15000,
+    moods: ["Adventure", "Shopping", "Foodie"],
   },
 ];

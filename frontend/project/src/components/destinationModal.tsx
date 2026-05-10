@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   ModalContent,
@@ -23,6 +23,7 @@ import {
   IoWalletOutline, // Bütçe ikonu eklendi
   IoStarOutline,
   IoChatbubblesOutline,
+  IoTrash,
 } from "react-icons/io5";
 
 // Leaflet bileşenleri
@@ -30,16 +31,74 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 
 // Tip tanımı
-import type { Destination } from "@/interfaces";
+import type { Destination, Landmark } from "@/interfaces";
+import { destinations } from "@/data";
+import { IoAdd, IoFlashOutline } from "react-icons/io5";
+import { REVIEWS_STORAGE_KEY, MODERATION_LOGS_KEY } from "@/constants/storage";
 
-// 1. Leaflet İkon Fix
-const customIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+// Distance helper
+function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+) {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// 1. Leaflet İkonları
+const defaultIcon = new L.Icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
   iconSize: [25, 41],
   iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const landmarkIcon = new L.Icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const restaurantIcon = new L.Icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
+const nearbyIcon = new L.Icon({
+  iconUrl:
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png",
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
 });
 
 // 2. Yardımcı Bileşen: Koordinat değişince haritayı kaydırır ve boyutunu düzeltir
@@ -58,22 +117,23 @@ function ChangeView({ center }: { center: [number, number] }) {
 
 // 3. Küçük Harita Bileşeni
 const MapSection = ({
-  lat,
-  lng,
-  name,
+  destination,
+  nearbyPoints,
 }: {
-  lat: number;
-  lng: number;
-  name: string;
+  destination: Destination;
+  nearbyPoints: (Landmark & { distance: number })[];
 }) => {
-  const position: [number, number] = [lat, lng];
+  const position: [number, number] = [
+    destination.coordinates.lat,
+    destination.coordinates.lng,
+  ];
 
   return (
-    <div className="w-full h-[250px] rounded-2xl overflow-hidden border-2 border-divider shadow-sm relative z-0">
+    <div className="w-full h-[350px] rounded-[2.5rem] overflow-hidden border-2 border-divider shadow-lg relative z-0">
       <MapContainer
         center={position}
-        zoom={13}
-        scrollWheelZoom={false}
+        zoom={14}
+        scrollWheelZoom={true}
         style={{ height: "100%", width: "100%" }}
       >
         <ChangeView center={position} />
@@ -81,9 +141,67 @@ const MapSection = ({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <Marker position={position} icon={customIcon}>
-          <Popup>{name}</Popup>
+        {/* Ana Destinasyon */}
+        <Marker position={position} icon={defaultIcon}>
+          <Popup>
+            <div className="font-bold">{destination.name}</div>
+            <div className="text-xs text-default-500">Center Point</div>
+          </Popup>
         </Marker>
+        {/* Landmarks */}
+        {destination.landmarks
+          .filter(
+            (x) =>
+              !nearbyPoints.some(
+                (y) =>
+                  y.coordinates.lat === x.coordinates.lat &&
+                  y.coordinates.lng === x.coordinates.lng,
+              ),
+          )
+          .map((l) => (
+            <Marker
+              key={l.id}
+              position={[l.coordinates.lat, l.coordinates.lng]}
+              icon={landmarkIcon}
+            >
+              <Popup>
+                <div className="font-bold text-primary">{l.name}</div>
+                <div className="text-xs text-default-500">{l.type}</div>
+              </Popup>
+            </Marker>
+          ))}
+        {/* Restaurants */}
+        {destination.localRestaurants.map((r) => (
+          <Marker
+            key={r.id}
+            position={[r.coordinates.lat, r.coordinates.lng]}
+            icon={restaurantIcon}
+          >
+            <Popup>
+              <div className="font-bold text-success">{r.name}</div>
+              <div className="text-xs text-default-500">
+                {r.cuisine} • {r.priceRange}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+        {/* Suggested Nearby */}
+        {nearbyPoints.slice(0, 5).map((n) => (
+          <Marker
+            key={n.id}
+            position={[n.coordinates.lat, n.coordinates.lng]}
+            icon={nearbyIcon}
+          >
+            <Popup>
+              <div className="font-bold text-secondary">
+                {n.name} (Suggested)
+              </div>
+              <div className="text-xs text-default-500">
+                {n.distance.toFixed(1)}km away
+              </div>
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </div>
   );
@@ -94,12 +212,14 @@ interface Props {
   destination: Destination | null;
   isOpen: boolean;
   onOpenChange: () => void;
+  onQuickAdd?: (item: { name: string; lat?: number; lng?: number }) => void;
 }
 
 export const DestinationModal = ({
   destination,
   isOpen,
   onOpenChange,
+  onQuickAdd,
 }: Props) => {
   if (!destination) return null;
 
@@ -110,7 +230,7 @@ export const DestinationModal = ({
   useEffect(() => {
     if (isOpen) {
       try {
-        const stored = localStorage.getItem("travel-planner-reviews");
+        const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
         if (stored) setReviews(JSON.parse(stored));
       } catch {
         setReviews([]);
@@ -119,7 +239,75 @@ export const DestinationModal = ({
   }, [isOpen]);
 
   // Sadece şu anki destinasyonun yorumlarını filtrele
-  const destinationReviews = reviews.filter(r => String(r.destinationId) === String(destination.id));
+  const destinationReviews = reviews.filter(
+    (r) => String(r.destinationId) === String(destination.id),
+  );
+
+  // Yakındaki yerleri bul (5km)
+  const nearbyLandmarks = useMemo(() => {
+    const allLandmarks: (Landmark & { distance: number })[] = [];
+    destinations.forEach((dest) => {
+      // Kendi landmarks'ını dahil etme (veya istersen et)
+      // Amaç "discover hidden gems" ise farklı yerleri göstermek daha iyi
+
+      dest.landmarks.forEach((landmark) => {
+        const dist = calculateDistance(
+          destination.coordinates.lat,
+          destination.coordinates.lng,
+          landmark.coordinates.lat,
+          landmark.coordinates.lng,
+        );
+        if (dist <= 5) {
+          allLandmarks.push({ ...landmark, distance: dist });
+        }
+      });
+    });
+    return allLandmarks.sort((a, b) => a.distance - b.distance);
+  }, [destination]);
+
+  const isAdmin = localStorage.getItem("travel-planner-is-admin") === "true";
+
+  const handleRemoveReview = (reviewId: string) => {
+    if (!window.confirm("Are you sure you want to delete this review?")) return;
+
+    try {
+      const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
+      if (stored) {
+        const allReviews = JSON.parse(stored);
+        const deletedReview = allReviews.find((r: any) => String(r.id) === String(reviewId));
+        const updated = allReviews.filter((r: any) => String(r.id) !== String(reviewId));
+        localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(updated));
+        setReviews(updated);
+
+        // Profil bilgisinden adminin adını (e-postasını) alıyoruz
+        let adminName = "Admin";
+        try {
+          const profileStr = localStorage.getItem("travel-planner-profile");
+          if (profileStr) {
+            const profile = JSON.parse(profileStr);
+            if (profile.user && profile.user.email) {
+              adminName = profile.user.email.split('@')[0];
+            }
+          }
+        } catch(e) {}
+
+        // Audit log aligned with Admin Panel structure
+        const logEntry = {
+          id: Date.now().toString(),
+          action: "DELETE_REVIEW",
+          targetId: reviewId,
+          targetContent: deletedReview?.text || "N/A",
+          adminName: adminName,
+          timestamp: new Date().toISOString(),
+        };
+        const storedLogs = localStorage.getItem(MODERATION_LOGS_KEY);
+        const logs = storedLogs ? JSON.parse(storedLogs) : [];
+        localStorage.setItem(MODERATION_LOGS_KEY, JSON.stringify([logEntry, ...logs]));
+      }
+    } catch (err) {
+      console.error("Failed to delete review:", err);
+    }
+  };
 
   return (
     <Modal
@@ -141,7 +329,9 @@ export const DestinationModal = ({
             <ModalHeader className="flex flex-col gap-1 pr-16 bg-background/80 backdrop-blur-md sticky top-0 z-40">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
                 <div>
-                  <h2 className="text-3xl font-extrabold italic">{destination.name}</h2>
+                  <h2 className="text-3xl font-extrabold italic">
+                    {destination.name}
+                  </h2>
                   <div className="flex items-center gap-1 text-default-500 font-medium text-sm mt-1">
                     <IoLocationOutline size={18} className="text-primary" />
                     {destination.city}, {destination.country}
@@ -182,10 +372,25 @@ export const DestinationModal = ({
                   {/* Overview Card */}
                   <Card className="border-none shadow-xl rounded-[2rem] p-4">
                     <CardBody>
-                      <h4 className="text-xl font-bold italic mb-4 flex items-center gap-2">
-                        <div className="w-1.5 h-6 bg-primary rounded-full" />
-                        Overview
-                      </h4>
+                      <div className="flex justify-between items-start mb-4">
+                        <h4 className="text-xl font-bold italic flex items-center gap-2">
+                          <div className="w-1.5 h-6 bg-primary rounded-full" />
+                          Overview
+                        </h4>
+                        <div className="flex flex-wrap gap-2 justify-end max-w-[50%]">
+                          {destination.moods?.map((mood) => (
+                            <Chip
+                              key={mood}
+                              size="sm"
+                              variant="dot"
+                              color="primary"
+                              className="border-none bg-default-100 font-bold"
+                            >
+                              {mood}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
                       <p className="text-default-600 leading-relaxed text-lg font-medium">
                         {destination.description}
                       </p>
@@ -203,9 +408,8 @@ export const DestinationModal = ({
                           <h4 className="text-xl font-bold italic">Location</h4>
                         </div>
                         <MapSection
-                          lat={destination.coordinates.lat}
-                          lng={destination.coordinates.lng}
-                          name={destination.name}
+                          destination={destination}
+                          nearbyPoints={nearbyLandmarks}
                         />
                       </section>
 
@@ -214,7 +418,10 @@ export const DestinationModal = ({
                           <div className="p-2 bg-secondary/10 rounded-xl text-secondary">
                             <IoFlagOutline size={24} />
                           </div>
-                          <h4 className="text-xl font-bold italic"> Landmarks</h4>
+                          <h4 className="text-xl font-bold italic">
+                            {" "}
+                            Landmarks
+                          </h4>
                         </div>
                         <div className="grid grid-cols-1 gap-4">
                           {destination.landmarks.map((landmark) => (
@@ -231,8 +438,29 @@ export const DestinationModal = ({
                                     {landmark.type}
                                   </p>
                                 </div>
-                                <div className="p-2 bg-default-100 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <IoLocationOutline size={18} className="text-primary" />
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color="primary"
+                                    isIconOnly
+                                    className="rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() =>
+                                      onQuickAdd?.({
+                                        name: landmark.name,
+                                        lat: landmark.coordinates.lat,
+                                        lng: landmark.coordinates.lng,
+                                      })
+                                    }
+                                  >
+                                    <IoAdd size={18} />
+                                  </Button>
+                                  <div className="p-2 bg-default-100 rounded-xl">
+                                    <IoLocationOutline
+                                      size={18}
+                                      className="text-primary"
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -242,52 +470,127 @@ export const DestinationModal = ({
                     </div>
 
                     {/* Right: Restaurants */}
-                    <section>
-                      <div className="flex items-center gap-2 mb-6">
-                        <div className="p-2 bg-success/10 rounded-xl text-success">
-                          <IoRestaurantOutline size={24} />
+                    <div className="flex flex-col gap-12">
+                      <section>
+                        <div className="flex items-center gap-2 mb-6">
+                          <div className="p-2 bg-success/10 rounded-xl text-success">
+                            <IoRestaurantOutline size={24} />
+                          </div>
+                          <h4 className="text-xl font-bold italic">
+                            Local Dining
+                          </h4>
                         </div>
-                        <h4 className="text-xl font-bold italic">Local Dining</h4>
-                      </div>
-                      <div className="flex flex-col gap-4">
-                        {destination.localRestaurants.map((restaurant) => (
-                          <div
-                            key={restaurant.id}
-                            className="group p-5 bg-default-50 border-2 border-transparent hover:border-success/20 hover:bg-background hover:shadow-lg rounded-[2rem] transition-all duration-300"
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <p className="font-bold text-lg group-hover:text-success transition-colors">
-                                  {restaurant.name}
-                                </p>
-                                <p className="text-xs text-default-500 font-bold uppercase tracking-wider mt-1">
-                                  {restaurant.cuisine}
-                                </p>
+                        <div className="flex flex-col gap-4">
+                          {destination.localRestaurants.map((restaurant) => (
+                            <div
+                              key={restaurant.id}
+                              className="group p-5 bg-default-50 border-2 border-transparent hover:border-success/20 hover:bg-background hover:shadow-lg rounded-[2rem] transition-all duration-300"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <p className="font-bold text-lg group-hover:text-success transition-colors">
+                                    {restaurant.name}
+                                  </p>
+                                  <p className="text-xs text-default-500 font-bold uppercase tracking-wider mt-1">
+                                    {restaurant.cuisine}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="flat"
+                                    color="success"
+                                    isIconOnly
+                                    className="rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() =>
+                                      onQuickAdd?.({
+                                        name: restaurant.name,
+                                        lat: restaurant.coordinates.lat,
+                                        lng: restaurant.coordinates.lng,
+                                      })
+                                    }
+                                  >
+                                    <IoAdd size={18} />
+                                  </Button>
+                                  <Chip
+                                    size="sm"
+                                    variant="flat"
+                                    color="success"
+                                    className="font-black px-3"
+                                  >
+                                    {restaurant.priceRange}
+                                  </Chip>
+                                </div>
                               </div>
-                              <Chip
-                                size="sm"
-                                variant="flat"
-                                color="success"
-                                className="font-black px-3"
-                              >
-                                {restaurant.priceRange}
-                              </Chip>
+                              <div className="flex items-center justify-between mt-4 pt-4 border-t border-divider/50">
+                                <p className="text-xs text-default-400 font-medium italic">
+                                  {restaurant.address}
+                                </p>
+                                <div className="flex items-center gap-1 text-warning bg-warning/10 px-2 py-1 rounded-lg">
+                                  <IoStar size={12} />
+                                  <span className="text-xs font-black">
+                                    {restaurant.rating}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-divider/50">
-                              <p className="text-xs text-default-400 font-medium italic">
-                                {restaurant.address}
+                          ))}
+                        </div>
+                      </section>
+
+                      {/* Nearby Suggestions Section */}
+                      {nearbyLandmarks.length > 0 && (
+                        <section className="bg-primary-50/50 p-6 rounded-[2.5rem] border-2 border-primary/10">
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="p-2 bg-primary/20 rounded-xl text-primary">
+                              <IoFlashOutline size={24} />
+                            </div>
+                            <div>
+                              <h4 className="text-xl font-bold italic text-primary-900">
+                                Suggested Nearby
+                              </h4>
+                              <p className="text-xs text-primary-600 font-bold uppercase tracking-widest">
+                                Discover hidden gems within 5km
                               </p>
-                              <div className="flex items-center gap-1 text-warning bg-warning/10 px-2 py-1 rounded-lg">
-                                <IoStar size={12} />
-                                <span className="text-xs font-black">
-                                  {restaurant.rating}
-                                </span>
-                              </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </section>
+                          <div className="flex flex-col gap-3">
+                            {nearbyLandmarks.slice(0, 3).map((landmark) => (
+                              <div
+                                key={landmark.id}
+                                className="flex items-center justify-between p-4 bg-background rounded-2xl shadow-sm border-2 border-divider/50 hover:border-primary/30 transition-all group"
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-bold text-sm">
+                                    {landmark.name}
+                                  </span>
+                                  <span className="text-[10px] text-default-400 font-black uppercase">
+                                    {landmark.type} •{" "}
+                                    {landmark.distance.toFixed(1)} km away
+                                  </span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  color="primary"
+                                  variant="solid"
+                                  className="font-bold rounded-xl h-8 px-4"
+                                  startContent={<IoAdd size={16} />}
+                                  onPress={() =>
+                                    onQuickAdd?.({
+                                      name: landmark.name,
+                                      lat: landmark.coordinates.lat,
+                                      lng: landmark.coordinates.lng,
+                                    })
+                                  }
+                                >
+                                  Quick Add
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+                    </div>
                   </div>
 
                   {/* Traveler Reviews Section */}
@@ -297,17 +600,27 @@ export const DestinationModal = ({
                         <div className="p-3 bg-primary/10 rounded-2xl text-primary">
                           <IoStar size={28} />
                         </div>
-                        <h4 className="text-2xl md:text-3xl font-extrabold italic">Traveler Reviews</h4>
+                        <h4 className="text-2xl md:text-3xl font-extrabold italic">
+                          Traveler Reviews
+                        </h4>
                       </div>
-                      <Chip variant="flat" color="primary" size="lg" className="font-bold rounded-2xl">
+                      <Chip
+                        variant="flat"
+                        color="primary"
+                        size="lg"
+                        className="font-bold rounded-2xl"
+                      >
                         {destinationReviews.length} Reviews
                       </Chip>
                     </div>
 
                     <div className="flex flex-col gap-6">
                       {destinationReviews.length > 0 ? (
-                        destinationReviews.map(review => (
-                          <Card key={review.id} className="border-none bg-default-50 hover:bg-background hover:shadow-xl transition-all duration-300 rounded-[2.5rem]">
+                        destinationReviews.map((review) => (
+                          <Card
+                            key={review.id}
+                            className="border-none bg-default-50 hover:bg-background hover:shadow-xl transition-all duration-300 rounded-[2.5rem]"
+                          >
                             <CardBody className="p-8">
                               <div className="flex flex-wrap justify-between items-start gap-4 mb-4">
                                 <div className="flex items-center gap-4">
@@ -315,16 +628,42 @@ export const DestinationModal = ({
                                     {review.userName.charAt(0)}
                                   </div>
                                   <div>
-                                    <p className="font-bold text-xl">{review.userName}</p>
+                                    <p className="font-bold text-xl">
+                                      {review.userName}
+                                    </p>
                                     <p className="text-sm text-default-500 font-medium">
-                                      {new Date(review.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                                      {new Date(
+                                        review.timestamp,
+                                      ).toLocaleDateString(undefined, {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                      })}
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex gap-1 text-warning bg-warning/10 px-3 py-1.5 rounded-xl text-lg">
-                                  {[...Array(5)].map((_, i) => (
-                                    i < review.rating ? <IoStar key={i} /> : <IoStarOutline key={i} />
-                                  ))}
+                                <div className="flex gap-4 items-start">
+                                  <div className="flex gap-1 text-warning bg-warning/10 px-3 py-1.5 rounded-xl text-lg">
+                                    {[...Array(5)].map((_, i) =>
+                                      i < review.rating ? (
+                                        <IoStar key={i} />
+                                      ) : (
+                                        <IoStarOutline key={i} />
+                                      ),
+                                    )}
+                                  </div>
+                                  {isAdmin && (
+                                    <Button
+                                      isIconOnly
+                                      size="sm"
+                                      variant="flat"
+                                      color="danger"
+                                      className="rounded-xl"
+                                      onPress={() => handleRemoveReview(review.id)}
+                                    >
+                                      <IoTrash size={16} />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                               <p className="text-default-700 leading-relaxed text-lg font-medium mb-6">
@@ -332,11 +671,21 @@ export const DestinationModal = ({
                               </p>
                               {review.photos && review.photos.length > 0 && (
                                 <div className="flex gap-4 overflow-x-auto pb-2 snap-x">
-                                  {review.photos.map((photo: string, i: number) => (
-                                    <div key={i} className="relative w-32 h-32 flex-shrink-0 rounded-2xl overflow-hidden shadow-md snap-center">
-                                      <Image src={photo} alt={`Review ${i}`} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500 cursor-pointer" removeWrapper />
-                                    </div>
-                                  ))}
+                                  {review.photos.map(
+                                    (photo: string, i: number) => (
+                                      <div
+                                        key={i}
+                                        className="relative w-32 h-32 flex-shrink-0 rounded-2xl overflow-hidden shadow-md snap-center"
+                                      >
+                                        <Image
+                                          src={photo}
+                                          alt={`Review ${i}`}
+                                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500 cursor-pointer"
+                                          removeWrapper
+                                        />
+                                      </div>
+                                    ),
+                                  )}
                                 </div>
                               )}
                             </CardBody>
@@ -344,9 +693,17 @@ export const DestinationModal = ({
                         ))
                       ) : (
                         <div className="text-center py-16 bg-default-50 rounded-[2.5rem] border-2 border-dashed border-divider">
-                          <IoChatbubblesOutline size={64} className="mx-auto text-default-300 mb-4" />
-                          <h5 className="text-xl font-bold mb-2">No reviews yet</h5>
-                          <p className="text-default-500">Book a trip, experience this destination, and be the first to share your thoughts!</p>
+                          <IoChatbubblesOutline
+                            size={64}
+                            className="mx-auto text-default-300 mb-4"
+                          />
+                          <h5 className="text-xl font-bold mb-2">
+                            No reviews yet
+                          </h5>
+                          <p className="text-default-500">
+                            Book a trip, experience this destination, and be the
+                            first to share your thoughts!
+                          </p>
                         </div>
                       )}
                     </div>
@@ -356,9 +713,9 @@ export const DestinationModal = ({
             </ModalBody>
 
             <ModalFooter className="bg-background/80 backdrop-blur-md">
-              <Button 
-                variant="light" 
-                className="font-bold px-8 h-12 rounded-2xl" 
+              <Button
+                variant="light"
+                className="font-bold px-8 h-12 rounded-2xl"
                 onPress={onClose}
               >
                 Close
