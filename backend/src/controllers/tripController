@@ -1,0 +1,211 @@
+const db = require('../config/db');
+
+exports.createTrip = async (req, res) => {
+    const userId = req.user.id;
+    const {
+        title,
+        destination,
+        startDate,
+        endDate,
+        budget,
+        travelType,
+        notes
+    } = req.body;
+
+    try {
+        if (!title || !destination) {
+            return res.status(400).json({
+                message: 'Başlık ve gidilecek yer zorunludur'
+            });
+        }
+
+        const [result] = await db.query(
+            `INSERT INTO trips 
+            (user_id, title, destination, start_date, end_date, budget, travel_type, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                userId,
+                title,
+                destination,
+                startDate || null,
+                endDate || null,
+                budget || 0,
+                travelType || 'General',
+                notes || null
+            ]
+        );
+
+        res.status(201).json({
+            message: 'Gezi planı başarıyla oluşturuldu',
+            trip: {
+                id: result.insertId,
+                title,
+                destination,
+                startDate,
+                endDate,
+                budget,
+                travelType,
+                notes
+            }
+        });
+    } catch (error) {
+        console.error('Create trip error:', error);
+        res.status(500).json({
+            message: 'Gezi planı oluşturulurken hata oluştu'
+        });
+    }
+};
+
+exports.getTrips = async (req, res) => {
+    const userId = req.user.id;
+
+    try {
+        const [trips] = await db.query(
+            `SELECT 
+                id,
+                title,
+                destination,
+                start_date AS startDate,
+                end_date AS endDate,
+                budget,
+                travel_type AS travelType,
+                notes,
+                created_at AS createdAt
+             FROM trips 
+             WHERE user_id = ?
+             ORDER BY created_at DESC`,
+            [userId]
+        );
+
+        res.json({ trips });
+    } catch (error) {
+        console.error('Get trips error:', error);
+        res.status(500).json({
+            message: 'Gezi planları alınırken hata oluştu'
+        });
+    }
+};
+
+exports.getTripById = async (req, res) => {
+    const userId = req.user.id;
+    const tripId = req.params.id;
+
+    try {
+        const [trips] = await db.query(
+            `SELECT 
+                id,
+                title,
+                destination,
+                start_date AS startDate,
+                end_date AS endDate,
+                budget,
+                travel_type AS travelType,
+                notes,
+                created_at AS createdAt
+             FROM trips 
+             WHERE id = ? AND user_id = ?`,
+            [tripId, userId]
+        );
+
+        if (trips.length === 0) {
+            return res.status(404).json({
+                message: 'Gezi planı bulunamadı'
+            });
+        }
+
+        res.json({ trip: trips[0] });
+    } catch (error) {
+        console.error('Get trip by id error:', error);
+        res.status(500).json({
+            message: 'Gezi planı alınırken hata oluştu'
+        });
+    }
+};
+
+exports.updateTrip = async (req, res) => {
+    const userId = req.user.id;
+    const tripId = req.params.id;
+
+    const {
+        title,
+        destination,
+        startDate,
+        endDate,
+        budget,
+        travelType,
+        notes
+    } = req.body;
+
+    try {
+        if (!title || !destination) {
+            return res.status(400).json({
+                message: 'Başlık ve gidilecek yer zorunludur'
+            });
+        }
+
+        const [result] = await db.query(
+            `UPDATE trips
+             SET title = ?,
+                 destination = ?,
+                 start_date = ?,
+                 end_date = ?,
+                 budget = ?,
+                 travel_type = ?,
+                 notes = ?
+             WHERE id = ? AND user_id = ?`,
+            [
+                title,
+                destination,
+                startDate || null,
+                endDate || null,
+                budget || 0,
+                travelType || 'General',
+                notes || null,
+                tripId,
+                userId
+            ]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                message: 'Gezi planı bulunamadı'
+            });
+        }
+
+        res.json({
+            message: 'Gezi planı başarıyla güncellendi'
+        });
+    } catch (error) {
+        console.error('Update trip error:', error);
+        res.status(500).json({
+            message: 'Gezi planı güncellenirken hata oluştu'
+        });
+    }
+};
+
+exports.deleteTrip = async (req, res) => {
+    const userId = req.user.id;
+    const tripId = req.params.id;
+
+    try {
+        const [result] = await db.query(
+            'DELETE FROM trips WHERE id = ? AND user_id = ?',
+            [tripId, userId]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                message: 'Gezi planı bulunamadı'
+            });
+        }
+
+        res.json({
+            message: 'Gezi planı başarıyla silindi'
+        });
+    } catch (error) {
+        console.error('Delete trip error:', error);
+        res.status(500).json({
+            message: 'Gezi planı silinirken hata oluştu'
+        });
+    }
+};
