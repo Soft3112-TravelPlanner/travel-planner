@@ -26,6 +26,7 @@ import {
   DropdownMenu,
   DropdownItem,
   ScrollShadow,
+  Image,
 } from "@heroui/react";
 import {
   IoAdd,
@@ -46,6 +47,13 @@ import {
   IoHourglassOutline,
   IoMenuOutline,
   IoEllipsisVertical,
+  IoSettingsOutline,
+  IoInformationCircleOutline,
+  IoAddCircleOutline,
+  IoCloudUploadOutline,
+  IoCheckmarkCircleOutline,
+  IoRestaurantOutline,
+  IoFlagOutline,
   IoCalendarClearOutline,
 } from "react-icons/io5";
 import { motion } from "framer-motion";
@@ -172,14 +180,107 @@ function RouteComponent() {
 
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
-  const [trips, setTrips] = useState<Trip[]>(() => {
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const formatDateForInput = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0];
+  };
+
+  const formatDateTimeForInput = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 16);
+  };
+
+  const getAuthToken = () => {
     try {
-      const stored = localStorage.getItem("travel-planner-trips");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
+      const profileStr = localStorage.getItem("travel-planner-profile");
+      if (profileStr) {
+        const profile = JSON.parse(profileStr);
+        return profile.token;
+      }
+    } catch (e) {}
+    return null;
+  };
+
+  const fetchTrips = async () => {
+    setIsLoading(true);
+    const token = getAuthToken();
+    if (!token) {
+      setTrips([]);
+      setIsLoading(false);
+      return;
     }
-  });
+
+    try {
+      const response = await fetch("http://localhost:3001/api/trips", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const mappedData = data.map((t: any) => ({
+          ...t,
+          id: String(t.id),
+          destinationId: String(t.destination_id || t.destinationId),
+          startDate: t.start_date || t.startDate,
+          endDate: t.end_date || t.endDate,
+          plannedActivities:
+            typeof t.planned_activities === "string"
+              ? JSON.parse(t.planned_activities)
+              : t.planned_activities || t.plannedActivities || [],
+          checklist:
+            typeof t.checklist === "string"
+              ? JSON.parse(t.checklist)
+              : t.checklist || [],
+          accommodation:
+            typeof t.accommodation === "string"
+              ? JSON.parse(t.accommodation)
+              : t.accommodation || null,
+          transport:
+            typeof t.transport === "string"
+              ? JSON.parse(t.transport)
+              : t.transport || null,
+        }));
+        setTrips(mappedData);
+      }
+    } catch (error) {
+      console.error("Failed to fetch trips:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateTripInBackend = async (updatedTrip: Trip) => {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/trips/${updatedTrip.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedTrip),
+      });
+
+      if (response.ok) {
+        // Optionally refresh trips, but we already updated the state locally for responsiveness
+        // await fetchTrips(); 
+      }
+    } catch (error) {
+      console.error("Failed to sync trip to backend:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTrips();
+  }, []);
 
   const [checklistTripId, setChecklistTripId] = useState<string | null>(null);
   const [customChecklistItem, setCustomChecklistItem] = useState("");
@@ -224,51 +325,57 @@ function RouteComponent() {
     onChecklistOpen();
   };
 
-  const handleToggleChecklistItem = (
+  const handleToggleChecklistItem = async (
     tripId: string,
     itemId: string,
     isDone: boolean,
   ) => {
-    const updatedTrips = trips.map((t) => {
-      if (t.id === tripId) {
-        return {
-          ...t,
-          checklist: t.checklist?.map((c) =>
-            c.id === itemId ? { ...c, isDone } : c,
-          ),
-        };
-      }
-      return t;
-    });
+    const tripToUpdate = trips.find(t => t.id === tripId);
+    if (!tripToUpdate) return;
+
+    const updatedTrip = {
+      ...tripToUpdate,
+      checklist: tripToUpdate.checklist?.map((c) =>
+        c.id === itemId ? { ...c, isDone } : c
+      ),
+    };
+
+    const updatedTrips = trips.map((t) => (t.id === tripId ? updatedTrip : t));
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    await updateTripInBackend(updatedTrip);
   };
 
-  const handleAddChecklistItem = (tripId: string, text: string) => {
+  const handleAddChecklistItem = async (tripId: string, text: string) => {
     if (!text.trim()) return;
-    const updatedTrips = trips.map((t) => {
-      if (t.id === tripId) {
-        const newChecklist = [
-          ...(t.checklist || []),
-          { id: Date.now().toString(), text, isDone: false },
-        ];
-        return { ...t, checklist: newChecklist };
-      }
-      return t;
-    });
+    const tripToUpdate = trips.find(t => t.id === tripId);
+    if (!tripToUpdate) return;
+
+    const updatedTrip = {
+      ...tripToUpdate,
+      checklist: [
+        ...(tripToUpdate.checklist || []),
+        { id: Date.now().toString(), text, isDone: false },
+      ],
+    };
+
+    const updatedTrips = trips.map((t) => (t.id === tripId ? updatedTrip : t));
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    await updateTripInBackend(updatedTrip);
     setCustomChecklistItem("");
   };
 
-  const handleDeleteChecklistItem = (tripId: string, itemId: string) => {
-    const updatedTrips = trips.map((t) =>
-      t.id === tripId
-        ? { ...t, checklist: t.checklist?.filter((c) => c.id !== itemId) }
-        : t,
-    );
+  const handleDeleteChecklistItem = async (tripId: string, itemId: string) => {
+    const tripToUpdate = trips.find(t => t.id === tripId);
+    if (!tripToUpdate) return;
+
+    const updatedTrip = {
+      ...tripToUpdate,
+      checklist: tripToUpdate.checklist?.filter((c) => c.id !== itemId),
+    };
+
+    const updatedTrips = trips.map((t) => (t.id === tripId ? updatedTrip : t));
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
+    await updateTripInBackend(updatedTrip);
   };
 
   const handleOpenReview = (trip: Trip) => {
@@ -311,33 +418,55 @@ function RouteComponent() {
     setReviewPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const onSubmitReview = (onClose: () => void) => {
+  const onSubmitReview = async (onClose: () => void) => {
     if (!reviewTrip || rating === 0) {
       alert("Please select a rating (1-5 stars).");
       return;
     }
 
-    const newReview = {
-      id: Date.now().toString(),
+    const token = getAuthToken();
+    if (!token) {
+      alert("You must be logged in to leave a review.");
+      return;
+    }
+
+    const payload = {
       tripId: reviewTrip.id,
       destinationId: reviewTrip.destinationId,
-      userId: "current_user",
-      userName: "Traveler",
       rating,
       text: reviewText,
       photos: reviewPhotos,
-      timestamp: new Date().toISOString(),
     };
 
-    const updatedReviews = reviews.filter((r) => r.tripId !== reviewTrip.id);
-    updatedReviews.push(newReview);
+    try {
+      const response = await fetch("http://localhost:3001/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-    setReviews(updatedReviews);
-    localStorage.setItem(
-      "travel-planner-reviews",
-      JSON.stringify(updatedReviews),
-    );
-    onClose();
+      if (response.ok) {
+        const savedReview = await response.json();
+        const updatedReviews = reviews.filter((r) => r.tripId !== reviewTrip.id);
+        updatedReviews.push(savedReview);
+
+        setReviews(updatedReviews);
+        localStorage.setItem(
+          "travel-planner-reviews",
+          JSON.stringify(updatedReviews),
+        );
+        onClose();
+      } else {
+        const err = await response.json();
+        alert(err.message || "Failed to save review to server.");
+      }
+    } catch (error) {
+      console.error("Failed to submit review:", error);
+      alert("Could not connect to the server.");
+    }
   };
 
   // ITINERARY LOGIC
@@ -370,7 +499,7 @@ function RouteComponent() {
     onItineraryOpen();
   };
 
-  const handleAddActivity = () => {
+  const handleAddActivity = async () => {
     if (!itineraryTrip || !newActivityTitle || !newActivityTime) return;
 
     const newActivity: ItineraryActivity = {
@@ -383,19 +512,16 @@ function RouteComponent() {
       lng: newActivityLng ? parseFloat(newActivityLng) : undefined,
     };
 
-    const updatedTrips = trips.map((t) => {
-      if (t.id === itineraryTrip.id) {
-        const newActs = [...(t.plannedActivities || []), newActivity];
-        return { ...t, plannedActivities: newActs };
-      }
-      return t;
-    });
+    const updatedTrip = {
+      ...itineraryTrip,
+      plannedActivities: [...(itineraryTrip.plannedActivities || []), newActivity],
+    };
 
+    const updatedTrips = trips.map((t) => (t.id === itineraryTrip.id ? updatedTrip : t));
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setItineraryTrip(
-      updatedTrips.find((t) => t.id === itineraryTrip.id) || null,
-    );
+    await updateTripInBackend(updatedTrip);
+    
+    setItineraryTrip(updatedTrip);
     setNewActivityTitle("");
     setNewActivityTime("");
     setNewActivityDuration("");
@@ -445,39 +571,40 @@ function RouteComponent() {
     }
   };
 
-  const handleDeleteActivity = (tripId: string, actId: string) => {
-    const updatedTrips = trips.map((t) =>
-      t.id === tripId
-        ? {
-            ...t,
-            plannedActivities: t.plannedActivities?.filter(
-              (a) => a.id !== actId,
-            ),
-          }
-        : t,
-    );
+  const handleDeleteActivity = async (tripId: string, actId: string) => {
+    const tripToUpdate = trips.find(t => t.id === tripId);
+    if (!tripToUpdate) return;
+
+    const updatedTrip = {
+      ...tripToUpdate,
+      plannedActivities: tripToUpdate.plannedActivities?.filter((a) => a.id !== actId),
+    };
+
+    const updatedTrips = trips.map((t) => (t.id === tripId ? updatedTrip : t));
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setItineraryTrip(updatedTrips.find((t) => t.id === tripId) || null);
+    await updateTripInBackend(updatedTrip);
+    setItineraryTrip(updatedTrip);
   };
 
-  const handleMoveActivity = (
+  const handleMoveActivity = async (
     tripId: string,
     actId: string,
     newDayIndex: number,
   ) => {
-    const updatedTrips = trips.map((t) => {
-      if (t.id === tripId) {
-        const newActs = (t.plannedActivities || [])
-          .map((a) => (a.id === actId ? { ...a, dayIndex: newDayIndex } : a))
-          .sort((a, b) => a.startTime.localeCompare(b.startTime));
-        return { ...t, plannedActivities: newActs };
-      }
-      return t;
-    });
+    const tripToUpdate = trips.find(t => t.id === tripId);
+    if (!tripToUpdate) return;
+
+    const updatedTrip = {
+      ...tripToUpdate,
+      plannedActivities: (tripToUpdate.plannedActivities || [])
+        .map((a) => (a.id === actId ? { ...a, dayIndex: newDayIndex } : a))
+        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    };
+
+    const updatedTrips = trips.map((t) => (t.id === tripId ? updatedTrip : t));
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setItineraryTrip(updatedTrips.find((t) => t.id === tripId) || null);
+    await updateTripInBackend(updatedTrip);
+    setItineraryTrip(updatedTrip);
   };
 
   const handleInitiateEditActivity = (act: ItineraryActivity) => {
@@ -490,7 +617,7 @@ function RouteComponent() {
     onEditActivityOpen();
   };
 
-  const handleSaveEditActivity = (onClose: () => void) => {
+  const handleSaveEditActivity = async (onClose: () => void) => {
     if (
       !itineraryTrip ||
       !editingActivity ||
@@ -499,31 +626,27 @@ function RouteComponent() {
     )
       return;
 
-    const updatedTrips = trips.map((t) => {
-      if (t.id === itineraryTrip.id) {
-        const newActs = (t.plannedActivities || []).map((a) => {
-          if (a.id === editingActivity.id) {
-            return {
-              ...a,
-              title: editActivityTitle,
-              startTime: editActivityTime,
-              duration: editActivityDuration,
-              lat: editActivityLat ? parseFloat(editActivityLat) : undefined,
-              lng: editActivityLng ? parseFloat(editActivityLng) : undefined,
-            };
-          }
-          return a;
-        });
-        return { ...t, plannedActivities: newActs };
-      }
-      return t;
-    });
+    const updatedTrip = {
+      ...itineraryTrip,
+      plannedActivities: (itineraryTrip.plannedActivities || []).map((a) => {
+        if (a.id === editingActivity.id) {
+          return {
+            ...a,
+            title: editActivityTitle,
+            startTime: editActivityTime,
+            duration: editActivityDuration,
+            lat: editActivityLat ? parseFloat(editActivityLat) : undefined,
+            lng: editActivityLng ? parseFloat(editActivityLng) : undefined,
+          };
+        }
+        return a;
+      }),
+    };
 
+    const updatedTrips = trips.map((t) => (t.id === itineraryTrip.id ? updatedTrip : t));
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setItineraryTrip(
-      updatedTrips.find((t) => t.id === itineraryTrip.id) || null,
-    );
+    await updateTripInBackend(updatedTrip);
+    setItineraryTrip(updatedTrip);
     onClose();
   };
 
@@ -532,43 +655,37 @@ function RouteComponent() {
     if (!draggedActivityId || draggedActivityId === targetId || !itineraryTrip)
       return;
     const currentActs = [...(itineraryTrip.plannedActivities || [])];
-    const draggedIndex = currentActs.findIndex(
+    const draggedIndex = itineraryTrip.plannedActivities?.findIndex(
       (a) => a.id === draggedActivityId,
     );
-    const targetIndex = currentActs.findIndex((a) => a.id === targetId);
-    if (draggedIndex > -1 && targetIndex > -1) {
+    const targetIndex = itineraryTrip.plannedActivities?.findIndex((a) => a.id === targetId);
+    if (draggedIndex !== undefined && targetIndex !== undefined && draggedIndex > -1 && targetIndex > -1) {
+      const currentActs = [...(itineraryTrip.plannedActivities || [])];
       const [draggedAct] = currentActs.splice(draggedIndex, 1);
       currentActs.splice(targetIndex, 0, draggedAct);
-      const updatedTrips = trips.map((t) =>
-        t.id === itineraryTrip.id
-          ? { ...t, plannedActivities: currentActs }
-          : t,
-      );
+      
+      const updatedTrip = { ...itineraryTrip, plannedActivities: currentActs };
+      const updatedTrips = trips.map((t) => (t.id === itineraryTrip.id ? updatedTrip : t));
+      
       setTrips(updatedTrips);
-      localStorage.setItem(
-        "travel-planner-trips",
-        JSON.stringify(updatedTrips),
-      );
-      setItineraryTrip(
-        updatedTrips.find((t) => t.id === itineraryTrip.id) || null,
-      );
+      updateTripInBackend(updatedTrip);
+      setItineraryTrip(updatedTrip);
     }
     setDraggedActivityId(null);
   };
 
-  const handleSortActivitiesByTime = () => {
+  const handleSortActivitiesByTime = async () => {
     if (!itineraryTrip) return;
     const sortedActs = [...(itineraryTrip.plannedActivities || [])].sort(
       (a, b) => a.startTime.localeCompare(b.startTime),
     );
-    const updatedTrips = trips.map((t) =>
-      t.id === itineraryTrip.id ? { ...t, plannedActivities: sortedActs } : t,
-    );
+    
+    const updatedTrip = { ...itineraryTrip, plannedActivities: sortedActs };
+    const updatedTrips = trips.map((t) => (t.id === itineraryTrip.id ? updatedTrip : t));
+    
     setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setItineraryTrip(
-      updatedTrips.find((t) => t.id === itineraryTrip.id) || null,
-    );
+    await updateTripInBackend(updatedTrip);
+    setItineraryTrip(updatedTrip);
   };
 
   // Request notification permissions
@@ -632,6 +749,12 @@ function RouteComponent() {
   ) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const destinationId = formData.get("destinationId") as string;
+    const name = formData.get("name") as string;
+    const startDate = formData.get("startDate") as string;
+    const endDate = formData.get("endDate") as string;
+
+    if (!destinationId || !name || !startDate || !endDate) return;
 
     const hotelName = formData.get("hotelName") as string;
     const accommodation = hotelName
@@ -644,16 +767,6 @@ function RouteComponent() {
         }
       : undefined;
 
-    let ticketFileBase64 = "";
-    const fileInput = formData.get("ticketFile") as File;
-    if (fileInput && fileInput.size > 0) {
-      ticketFileBase64 = (await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(fileInput);
-      })) as string;
-    }
-
     const carrier = formData.get("carrier") as string;
     const transport = carrier
       ? {
@@ -661,33 +774,37 @@ function RouteComponent() {
           departureTime: formData.get("departureTime") as string,
           arrivalTime: formData.get("arrivalTime") as string,
           seatNumber: formData.get("seatNumber") as string,
-          ticketFile: ticketFileBase64 || undefined,
         }
       : undefined;
 
-    const newTrip: Trip = {
-      id: Date.now().toString(),
-      name: formData.get("name") as string,
-      destinationId: formData.get("destinationId") as string,
-      startDate: formData.get("startDate") as string,
-      endDate: formData.get("endDate") as string,
-      itinerary: [],
+    const token = getAuthToken();
+    if (!token) return;
+
+    const newTrip = {
+      name,
+      destinationId,
+      startDate,
+      endDate,
       accommodation,
       transport,
     };
 
-    const updatedTrips = [...trips, newTrip];
     try {
-      localStorage.setItem(
-        "travel-planner-trips",
-        JSON.stringify(updatedTrips),
-      );
-      setTrips(updatedTrips);
-      onClose();
-    } catch (err) {
-      alert(
-        "Failed to save. If you uploaded a ticket, the file might be too large (max 5MB).",
-      );
+      const response = await fetch("http://localhost:3001/api/trips", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(newTrip),
+      });
+
+      if (response.ok) {
+        await fetchTrips();
+        onClose();
+      }
+    } catch (error) {
+      console.error("Failed to add trip:", error);
     }
   };
 
@@ -731,7 +848,7 @@ function RouteComponent() {
         }
       : undefined;
 
-    const updatedTrip: Trip = {
+    const updatedTrip = {
       ...editingTrip,
       name: formData.get("name") as string,
       destinationId: formData.get("destinationId") as string,
@@ -741,28 +858,49 @@ function RouteComponent() {
       transport,
     };
 
-    const updatedTrips = trips.map((t) =>
-      t.id === editingTrip.id ? updatedTrip : t,
-    );
+    const token = getAuthToken();
+    if (!token) return;
+
     try {
-      localStorage.setItem(
-        "travel-planner-trips",
-        JSON.stringify(updatedTrips),
+      const response = await fetch(
+        `http://localhost:3001/api/trips/${editingTrip.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedTrip),
+        },
       );
-      setTrips(updatedTrips);
-      onClose();
-    } catch (err) {
-      alert(
-        "Failed to save. If you uploaded a ticket, the file might be too large (max 5MB).",
-      );
+
+      if (response.ok) {
+        await fetchTrips();
+        onClose();
+      }
+    } catch (error) {
+      console.error("Failed to update trip:", error);
     }
   };
 
-  const onDeleteTrip = (id: string, onClose: () => void) => {
-    const updatedTrips = trips.filter((t) => t.id !== id);
-    setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    onClose();
+  const onDeleteTrip = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this trip?")) return;
+
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/trips/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        await fetchTrips();
+      }
+    } catch (error) {
+      console.error("Failed to delete trip:", error);
+    }
   };
 
   return (
@@ -1057,26 +1195,24 @@ function RouteComponent() {
                         </div>
                       </div>
 
-                      {/* Add Review Button for finished trips */}
-                      {isTripFinished && (
-                        <div className="mt-2">
-                          <Button
-                            color={hasReviewed ? "success" : "primary"}
-                            variant={hasReviewed ? "flat" : "shadow"}
-                            className="w-full font-bold rounded-xl"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleOpenReview(trip);
-                            }}
-                            startContent={
-                              hasReviewed ? <IoStar /> : <IoStarOutline />
-                            }
-                          >
-                            {hasReviewed ? "Edit Review" : "Leave a Review"}
-                          </Button>
-                        </div>
-                      )}
+                      {/* Add Review Button for all trips */}
+                      <div className="mt-2">
+                        <Button
+                          color={hasReviewed ? "success" : "primary"}
+                          variant={hasReviewed ? "flat" : "shadow"}
+                          className="w-full font-bold rounded-xl"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleOpenReview(trip);
+                          }}
+                          startContent={
+                            hasReviewed ? <IoStar /> : <IoStarOutline />
+                          }
+                        >
+                          {hasReviewed ? "Edit Review" : "Leave a Review"}
+                        </Button>
+                      </div>
                     </CardBody>
                   </Card>
                 </motion.div>
@@ -1114,180 +1250,259 @@ function RouteComponent() {
       <Modal
         isOpen={isOpen}
         onOpenChange={onOpenChange}
-        placement="center"
+        size="3xl"
         backdrop="blur"
         scrollBehavior="inside"
+        classNames={{
+          base: "bg-background shadow-2xl rounded-[3rem] overflow-hidden border-none max-h-[90vh]",
+          header: "border-b-2 border-divider/50 px-8 py-6 z-40 bg-background/80 backdrop-blur-md sticky top-0",
+          footer: "border-t-2 border-divider/50 px-8 py-6 bg-background/80 backdrop-blur-md",
+          closeButton: "hover:bg-default-200 z-50 top-6 right-6 p-2 rounded-full bg-background/50 backdrop-blur-md",
+        }}
       >
-        <ModalContent className="rounded-[2.5rem] p-4">
+        <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader className="flex flex-col gap-1 text-2xl font-bold italic">
-                Create a New Trip
+              <ModalHeader className="flex flex-col gap-1 pr-16 border-none bg-transparent">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/20 rounded-2xl text-primary shadow-xl shadow-primary/10">
+                    <IoAirplaneOutline size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black italic text-primary-900 leading-none">
+                      Plan a New Adventure
+                    </h2>
+                    <p className="text-sm text-primary-600 font-bold italic opacity-70 mt-1">
+                      Start your journey by filling in the details below
+                    </p>
+                  </div>
+                </div>
               </ModalHeader>
-              <ModalBody className="w-full py-4">
+              <ModalBody className="px-8 py-4">
                 <Form
                   id="add-trip-form"
                   validationBehavior="native"
                   onSubmit={(e) => onSubmit(e, onClose)}
-                  className="flex flex-col gap-6 w-full"
+                  className="w-full"
                 >
-                  <Input
-                    isRequired
-                    name="name"
-                    label="Trip Name"
-                    placeholder="e.g. Summer in Paris"
-                    variant="bordered"
-                    className="font-bold"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-
-                  <Select
-                    isRequired
-                    name="destinationId"
-                    label="Destination"
-                    placeholder="Where are you going?"
-                    variant="bordered"
-                    classNames={{ trigger: "rounded-2xl" }}
+                  <Tabs 
+                    aria-label="New Trip Sections" 
+                    color="primary" 
+                    variant="underlined"
+                    classNames={{
+                      tabList: "gap-8 w-full relative rounded-none border-b border-divider mb-8",
+                      cursor: "w-full bg-primary",
+                      tab: "max-w-fit px-0 h-12",
+                      tabContent: "group-data-[selected=true]:text-primary font-black italic"
+                    }}
                   >
-                    {destinations.map((dest) => (
-                      <SelectItem
-                        key={dest.id}
-                        textValue={`${dest.name} (${dest.city}, ${dest.country})`}
-                      >
-                        {dest.name} ({dest.city}, {dest.country})
-                      </SelectItem>
-                    ))}
-                  </Select>
+                    <Tab 
+                      key="general" 
+                      title={
+                        <div className="flex items-center gap-2">
+                          <IoInformationCircleOutline size={20} />
+                          <span>General</span>
+                        </div>
+                      }
+                    >
+                      <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-4">
+                        <Card className="border-none shadow-2xl shadow-primary/5 rounded-[2.5rem] bg-primary/5 p-6">
+                          <CardBody className="flex flex-col gap-8">
+                            <Input
+                              isRequired
+                              name="name"
+                              label="Trip Name"
+                              placeholder="e.g. Summer in Paris"
+                              variant="flat"
+                              labelPlacement="outside"
+                              classNames={{ 
+                                inputWrapper: "rounded-2xl h-14 bg-background border-2 border-transparent focus-within:border-primary/50 transition-all px-6 shadow-sm",
+                                label: "font-black text-primary-900 italic mb-2 ml-2"
+                              }}
+                            />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      isRequired
-                      name="startDate"
-                      label="Start Date"
-                      type="date"
-                      placeholder=" "
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <Input
-                      isRequired
-                      name="endDate"
-                      label="End Date"
-                      type="date"
-                      placeholder=" "
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                  </div>
+                            <Select
+                              isRequired
+                              name="destinationId"
+                              label="Destination"
+                              placeholder="Where are you going?"
+                              variant="flat"
+                              labelPlacement="outside"
+                              classNames={{ 
+                                trigger: "rounded-2xl h-14 bg-background border-2 border-transparent focus-within:border-primary/50 transition-all px-6 shadow-sm",
+                                label: "font-black text-primary-900 italic mb-2 ml-2"
+                              }}
+                            >
+                              {destinations.map((dest) => (
+                                <SelectItem
+                                  key={dest.id}
+                                  textValue={`${dest.name} (${dest.city}, ${dest.country})`}
+                                  startContent={<IoLocationOutline className="text-primary" />}
+                                >
+                                  {dest.name} ({dest.city}, {dest.country})
+                                </SelectItem>
+                              ))}
+                            </Select>
 
-                  <Divider />
-                  <h4 className="font-bold text-lg italic border-b border-divider pb-2">
-                    Accommodation (Optional)
-                  </h4>
-                  <Input
-                    name="hotelName"
-                    label="Hotel Name"
-                    placeholder="e.g. The Ritz"
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-                  <Input
-                    name="hotelAddress"
-                    label="Address"
-                    placeholder="e.g. 15 Place Vendôme, Paris"
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      name="checkInDate"
-                      label="Check-in Date"
-                      type="date"
-                      placeholder=" "
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <Input
-                      name="checkOutDate"
-                      label="Check-out Date"
-                      type="date"
-                      placeholder=" "
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                  </div>
-                  <Input
-                    name="confirmationId"
-                    label="Confirmation ID"
-                    placeholder="e.g. X123456789"
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <Input
+                                isRequired
+                                name="startDate"
+                                label="Start Date"
+                                type="date"
+                                variant="flat"
+                                labelPlacement="outside"
+                                classNames={{ 
+                                  inputWrapper: "rounded-2xl h-14 bg-background border-2 border-transparent focus-within:border-primary/50 transition-all px-6 shadow-sm",
+                                  label: "font-black text-primary-900 italic mb-2 ml-2"
+                                }}
+                                startContent={<IoCalendarOutline className="text-primary" />}
+                              />
+                              <Input
+                                isRequired
+                                name="endDate"
+                                label="End Date"
+                                type="date"
+                                variant="flat"
+                                labelPlacement="outside"
+                                classNames={{ 
+                                  inputWrapper: "rounded-2xl h-14 bg-background border-2 border-transparent focus-within:border-primary/50 transition-all px-6 shadow-sm",
+                                  label: "font-black text-primary-900 italic mb-2 ml-2"
+                                }}
+                                startContent={<IoCalendarOutline className="text-primary" />}
+                              />
+                            </div>
+                          </CardBody>
+                        </Card>
+                      </div>
+                    </Tab>
 
-                  <Divider />
-                  <h4 className="font-bold text-lg italic border-b border-divider pb-2">
-                    Transport Details (Optional)
-                  </h4>
-                  <Input
-                    name="carrier"
-                    label="Carrier (Airline/Train)"
-                    placeholder="e.g. Delta Airlines"
-                    variant="bordered"
-                    classNames={{ inputWrapper: "rounded-2xl" }}
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      name="departureTime"
-                      label="Departure Time"
-                      type="datetime-local"
-                      placeholder=" "
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <Input
-                      name="arrivalTime"
-                      label="Arrival Time"
-                      type="datetime-local"
-                      placeholder=" "
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      name="seatNumber"
-                      label="Seat Number"
-                      placeholder="e.g. 12A"
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                    <Input
-                      name="ticketFile"
-                      label="Boarding Pass"
-                      type="file"
-                      accept="image/*,.pdf"
-                      variant="bordered"
-                      classNames={{ inputWrapper: "rounded-2xl" }}
-                    />
-                  </div>
+                    <Tab 
+                      key="extras" 
+                      title={
+                        <div className="flex items-center gap-2">
+                          <IoAddCircleOutline size={20} />
+                          <span>Accommodation & Transport</span>
+                        </div>
+                      }
+                    >
+                      <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <Card className="border-none shadow-xl shadow-secondary/5 rounded-[2.5rem] bg-secondary/5 p-6">
+                            <CardBody className="flex flex-col gap-4">
+                              <h4 className="font-black text-secondary-900 italic mb-2 flex items-center gap-2">
+                                <IoBedOutline size={20} />
+                                Accommodation
+                              </h4>
+                              <Input
+                                name="hotelName"
+                                label="Hotel Name"
+                                placeholder="e.g. The Ritz"
+                                variant="flat"
+                                classNames={{ 
+                                  inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-secondary/50 transition-all px-4 shadow-sm",
+                                }}
+                              />
+                              <Input
+                                name="hotelAddress"
+                                label="Address"
+                                placeholder="e.g. 15 Place Vendôme"
+                                variant="flat"
+                                classNames={{ 
+                                  inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-secondary/50 transition-all px-4 shadow-sm",
+                                }}
+                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  name="checkInDate"
+                                  label="Check-in"
+                                  type="date"
+                                  variant="flat"
+                                  classNames={{ 
+                                    inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-secondary/50 transition-all px-4 shadow-sm",
+                                  }}
+                                />
+                                <Input
+                                  name="checkOutDate"
+                                  label="Check-out"
+                                  type="date"
+                                  variant="flat"
+                                  classNames={{ 
+                                    inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-secondary/50 transition-all px-4 shadow-sm",
+                                  }}
+                                />
+                              </div>
+                            </CardBody>
+                          </Card>
+
+                          <Card className="border-none shadow-xl shadow-warning/5 rounded-[2.5rem] bg-warning/5 p-6">
+                            <CardBody className="flex flex-col gap-4">
+                              <h4 className="font-black text-warning-900 italic mb-2 flex items-center gap-2">
+                                <IoAirplaneOutline size={20} />
+                                Transport
+                              </h4>
+                              <Input
+                                name="carrier"
+                                label="Carrier"
+                                placeholder="Airline/Train"
+                                variant="flat"
+                                classNames={{ 
+                                  inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-warning/50 transition-all px-4 shadow-sm",
+                                }}
+                              />
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  name="departureTime"
+                                  label="Departure"
+                                  type="datetime-local"
+                                  variant="flat"
+                                  classNames={{ 
+                                    inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-warning/50 transition-all px-4 shadow-sm text-xs",
+                                  }}
+                                />
+                                <Input
+                                  name="arrivalTime"
+                                  label="Arrival"
+                                  type="datetime-local"
+                                  variant="flat"
+                                  classNames={{ 
+                                    inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-warning/50 transition-all px-4 shadow-sm text-xs",
+                                  }}
+                                />
+                              </div>
+                              <Input
+                                name="seatNumber"
+                                label="Seat Number"
+                                variant="flat"
+                                classNames={{ 
+                                  inputWrapper: "rounded-2xl bg-background border-2 border-transparent focus-within:border-warning/50 transition-all px-4 shadow-sm",
+                                }}
+                              />
+                            </CardBody>
+                          </Card>
+                        </div>
+                      </div>
+                    </Tab>
+                  </Tabs>
                 </Form>
               </ModalBody>
-              <ModalFooter className="w-full flex gap-3 pt-6">
+              <ModalFooter className="w-full flex gap-4 pt-6 bg-background/80 backdrop-blur-md border-t border-divider px-10 py-6">
                 <Button
-                  color="danger"
+                  color="default"
                   variant="light"
-                  className="font-bold"
+                  className="font-black h-12 px-6 rounded-2xl italic"
                   onPress={onClose}
                 >
-                  Cancel
+                  Discard
                 </Button>
                 <Button
                   color="primary"
                   type="submit"
                   form="add-trip-form"
-                  className="font-bold px-8 rounded-xl shadow-lg shadow-primary/20"
+                  className="font-black h-12 px-12 rounded-2xl shadow-xl shadow-primary/20 italic bg-primary text-white"
+                  startContent={<IoCheckmarkCircleOutline size={20} />}
                 >
-                  Create Trip
+                  Start My Trip
                 </Button>
               </ModalFooter>
             </>
@@ -1311,229 +1526,465 @@ function RouteComponent() {
       >
         <ModalContent>
           {(onClose) => {
-            const destForEdit = destinations.find(d => String(d.id) === editingTrip?.destinationId);
+            const currentDest = destinations.find(d => String(d.id) === editingTrip?.destinationId);
             return (
             <>
-              <ModalHeader className="flex flex-col gap-1 pr-16">
-                <h2 className="text-3xl font-extrabold italic">
-                  Edit Trip: {editingTrip?.name}
-                </h2>
+              <ModalHeader className="flex flex-col gap-1 pr-16 border-none bg-transparent">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/20 rounded-2xl text-primary shadow-xl shadow-primary/10">
+                    <IoSettingsOutline size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black italic text-primary-900 leading-none">
+                      Edit Trip
+                    </h2>
+                    <p className="text-sm text-primary-600 font-bold italic opacity-70 mt-1">
+                      {editingTrip?.name}
+                    </p>
+                  </div>
+                </div>
               </ModalHeader>
-              <ModalBody className="p-0">
-                <ScrollShadow className="w-full" hideScrollBar>
-                  {destForEdit && (
-                    <div className="relative w-full h-[300px]">
+              <ModalBody className="p-0 overflow-hidden">
+                <ScrollShadow className="h-full" hideScrollBar>
+                  {currentDest && (
+                    <div className="relative w-full h-[240px]">
                       <img
-                        src={destForEdit.mainImageUrl}
-                        alt={destForEdit.name}
-                        className="w-full h-full object-cover rounded-none"
+                        src={currentDest.mainImageUrl}
+                        alt={currentDest.name}
+                        className="w-full h-full object-cover"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-black/30" />
+                      <div className="absolute bottom-6 left-8">
+                        <Chip 
+                          color="primary" 
+                          variant="shadow" 
+                          className="font-black italic px-4 h-10 text-lg shadow-xl shadow-primary/30"
+                        >
+                          {currentDest.name}, {currentDest.country}
+                        </Chip>
+                      </div>
                     </div>
                   )}
                   
-                  <div className={`px-8 pb-12 flex flex-col gap-8 ${destForEdit ? '-mt-12 relative z-10' : 'pt-8'}`}>
+                  <div className="px-8 pb-12 -mt-8 relative z-10">
                     <Form
+                      key={editingTrip?.id}
                       id="edit-trip-form"
                       validationBehavior="native"
                       onSubmit={(e) => onEditSubmit(e, onClose)}
-                      className="flex flex-col gap-8 w-full"
+                      className="w-full"
                     >
-                      <Card className="border-none shadow-xl rounded-[2rem] p-4 w-full">
-                        <CardBody className="flex flex-col gap-6">
-                          <h4 className="text-xl font-bold italic flex items-center gap-2">
-                            <div className="w-1.5 h-6 bg-primary rounded-full" />
-                            General Info
-                          </h4>
-                          <Input
-                            isRequired
-                            name="name"
-                            label="Trip Name"
-                            defaultValue={editingTrip?.name}
-                            variant="bordered"
-                            classNames={{ inputWrapper: "rounded-2xl" }}
-                          />
-
-                          {editingTrip && (
-                            <Select
-                              isRequired
-                              name="destinationId"
-                              label="Destination"
-                              defaultSelectedKeys={[editingTrip.destinationId]}
-                              variant="bordered"
-                              classNames={{ trigger: "rounded-2xl" }}
-                            >
-                              {destinations.map((dest) => (
-                                <SelectItem
-                                  key={dest.id}
-                                  textValue={`${dest.name} (${dest.city}, ${dest.country})`}
-                                >
-                                  {dest.name} ({dest.city}, {dest.country})
-                                </SelectItem>
-                              ))}
-                            </Select>
-                          )}
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <Input
-                              isRequired
-                              name="startDate"
-                              label="Start Date"
-                              type="date"
-                              placeholder=" "
-                              defaultValue={editingTrip?.startDate}
-                              variant="bordered"
-                              classNames={{ inputWrapper: "rounded-2xl" }}
-                            />
-                            <Input
-                              isRequired
-                              name="endDate"
-                              label="End Date"
-                              type="date"
-                              placeholder=" "
-                              defaultValue={editingTrip?.endDate}
-                              variant="bordered"
-                              classNames={{ inputWrapper: "rounded-2xl" }}
-                            />
-                          </div>
-                        </CardBody>
-                      </Card>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <Card className="border-none shadow-xl rounded-[2rem] p-4">
-                          <CardBody className="flex flex-col gap-6">
-                            <h4 className="text-xl font-bold italic flex items-center gap-2">
-                              <div className="w-1.5 h-6 bg-secondary rounded-full" />
-                              Accommodation (Optional)
-                            </h4>
-                            <Input
-                              name="hotelName"
-                              label="Hotel Name"
-                              placeholder="e.g. The Ritz"
-                              defaultValue={editingTrip?.accommodation?.hotelName}
-                              variant="bordered"
-                              classNames={{ inputWrapper: "rounded-2xl" }}
-                            />
-                            <Input
-                              name="hotelAddress"
-                              label="Address"
-                              placeholder="e.g. 15 Place Vendôme, Paris"
-                              defaultValue={editingTrip?.accommodation?.address}
-                              variant="bordered"
-                              classNames={{ inputWrapper: "rounded-2xl" }}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                              <Input
-                                name="checkInDate"
-                                label="Check-in"
-                                type="date"
-                                placeholder=" "
-                                defaultValue={editingTrip?.accommodation?.checkInDate}
-                                variant="bordered"
-                                classNames={{ inputWrapper: "rounded-2xl" }}
-                              />
-                              <Input
-                                name="checkOutDate"
-                                label="Check-out"
-                                type="date"
-                                placeholder=" "
-                                defaultValue={editingTrip?.accommodation?.checkOutDate}
-                                variant="bordered"
-                                classNames={{ inputWrapper: "rounded-2xl" }}
-                              />
+                      <Tabs 
+                        aria-label="Trip Edit Sections" 
+                        color="primary" 
+                        variant="underlined"
+                        classNames={{
+                          tabList: "gap-8 w-full relative rounded-none border-b border-divider mb-8",
+                          cursor: "w-full bg-primary",
+                          tab: "max-w-fit px-0 h-12",
+                          tabContent: "group-data-[selected=true]:text-primary font-black italic"
+                        }}
+                      >
+                        <Tab 
+                          key="general" 
+                          title={
+                            <div className="flex items-center gap-2">
+                              <IoInformationCircleOutline size={20} />
+                              <span>General Info</span>
                             </div>
-                            <Input
-                              name="confirmationId"
-                              label="Confirmation ID"
-                              placeholder="e.g. X123456789"
-                              defaultValue={editingTrip?.accommodation?.confirmationId}
-                              variant="bordered"
-                              classNames={{ inputWrapper: "rounded-2xl" }}
-                            />
-                          </CardBody>
-                        </Card>
-
-                        <Card className="border-none shadow-xl rounded-[2rem] p-4">
-                          <CardBody className="flex flex-col gap-6">
-                            <h4 className="text-xl font-bold italic flex items-center gap-2">
-                              <div className="w-1.5 h-6 bg-warning rounded-full" />
-                              Transport Details (Optional)
-                            </h4>
-                            <Input
-                              name="carrier"
-                              label="Carrier (Airline/Train)"
-                              placeholder="e.g. Delta Airlines"
-                              defaultValue={editingTrip?.transport?.carrier}
-                              variant="bordered"
-                              classNames={{ inputWrapper: "rounded-2xl" }}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                              <Input
-                                name="departureTime"
-                                label="Departure Time"
-                                type="datetime-local"
-                                placeholder=" "
-                                defaultValue={editingTrip?.transport?.departureTime}
-                                variant="bordered"
-                                classNames={{ inputWrapper: "rounded-2xl" }}
-                              />
-                              <Input
-                                name="arrivalTime"
-                                label="Arrival Time"
-                                type="datetime-local"
-                                placeholder=" "
-                                defaultValue={editingTrip?.transport?.arrivalTime}
-                                variant="bordered"
-                                classNames={{ inputWrapper: "rounded-2xl" }}
-                              />
-                            </div>
-                            <div className="grid grid-cols-1 gap-4">
-                              <Input
-                                name="seatNumber"
-                                label="Seat Number"
-                                placeholder="e.g. 12A"
-                                defaultValue={editingTrip?.transport?.seatNumber}
-                                variant="bordered"
-                                classNames={{ inputWrapper: "rounded-2xl" }}
-                              />
-                              <div className="flex flex-col w-full gap-1">
+                          }
+                        >
+                          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <Card className="border-none shadow-2xl shadow-primary/5 rounded-[2.5rem] bg-background/80 backdrop-blur-md p-6">
+                              <CardBody className="flex flex-col gap-8">
                                 <Input
-                                  name="ticketFile"
-                                  label="Boarding Pass (Update)"
-                                  type="file"
-                                  accept="image/*,.pdf"
-                                  variant="bordered"
-                                  classNames={{ inputWrapper: "rounded-2xl" }}
+                                  isRequired
+                                  name="name"
+                                  label="Trip Name"
+                                  placeholder="Give your adventure a name"
+                                  defaultValue={editingTrip?.name}
+                                  variant="flat"
+                                  labelPlacement="outside"
+                                  classNames={{ 
+                                    inputWrapper: "rounded-2xl h-14 bg-primary/5 border-2 border-transparent focus-within:border-primary/50 transition-all px-6",
+                                    label: "font-black text-primary-900 italic mb-2 ml-2"
+                                  }}
                                 />
-                                {editingTrip?.transport?.ticketFile && (
-                                  <span className="text-xs text-success px-2 font-medium">
-                                    Ticket currently saved
-                                  </span>
+
+                                {editingTrip && (
+                                  <Select
+                                    isRequired
+                                    name="destinationId"
+                                    label="Destination"
+                                    placeholder="Change your destination"
+                                    defaultSelectedKeys={[editingTrip.destinationId]}
+                                    variant="flat"
+                                    labelPlacement="outside"
+                                    classNames={{ 
+                                      trigger: "rounded-2xl h-14 bg-primary/5 border-2 border-transparent focus-within:border-primary/50 transition-all px-6",
+                                      label: "font-black text-primary-900 italic mb-2 ml-2"
+                                    }}
+                                  >
+                                    {destinations.map((dest) => (
+                                      <SelectItem
+                                        key={dest.id}
+                                        textValue={`${dest.name} (${dest.city}, ${dest.country})`}
+                                        startContent={<IoLocationOutline className="text-primary" />}
+                                      >
+                                        {dest.name} ({dest.city}, {dest.country})
+                                      </SelectItem>
+                                    ))}
+                                  </Select>
                                 )}
-                              </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <Input
+                                    isRequired
+                                    name="startDate"
+                                    label="Start Date"
+                                    type="date"
+                                    placeholder=" "
+                                    defaultValue={formatDateForInput(editingTrip?.startDate)}
+                                    variant="flat"
+                                    labelPlacement="outside"
+                                    classNames={{ 
+                                      inputWrapper: "rounded-2xl h-14 bg-primary/5 border-2 border-transparent focus-within:border-primary/50 transition-all px-6",
+                                      label: "font-black text-primary-900 italic mb-2 ml-2"
+                                    }}
+                                    startContent={<IoCalendarOutline className="text-primary" />}
+                                  />
+                                  <Input
+                                    isRequired
+                                    name="endDate"
+                                    label="End Date"
+                                    type="date"
+                                    placeholder=" "
+                                    defaultValue={formatDateForInput(editingTrip?.endDate)}
+                                    variant="flat"
+                                    labelPlacement="outside"
+                                    classNames={{ 
+                                      inputWrapper: "rounded-2xl h-14 bg-primary/5 border-2 border-transparent focus-within:border-primary/50 transition-all px-6",
+                                      label: "font-black text-primary-900 italic mb-2 ml-2"
+                                    }}
+                                    startContent={<IoCalendarOutline className="text-primary" />}
+                                  />
+                                </div>
+                              </CardBody>
+                            </Card>
+                          </div>
+                        </Tab>
+
+                        <Tab 
+                          key="places" 
+                          title={
+                            <div className="flex items-center gap-2">
+                              <IoMapOutline size={20} />
+                              <span>Places</span>
                             </div>
-                          </CardBody>
-                        </Card>
-                      </div>
+                          }
+                        >
+                          <div className="flex flex-col gap-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            {/* Map Section */}
+                            <Card className="border-none shadow-2xl shadow-primary/5 rounded-[2.5rem] bg-background/80 backdrop-blur-md p-6">
+                              <CardBody className="flex flex-col gap-6">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <h4 className="text-xl font-black italic text-primary-900">Itinerary Map</h4>
+                                    <p className="text-sm text-primary-600 font-bold opacity-70">Route visualization for {currentDest?.name}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Chip color="primary" variant="flat" className="font-black italic">
+                                      {editingTrip?.plannedActivities?.length || 0} Total Activities
+                                    </Chip>
+                                  </div>
+                                </div>
+                                
+                                {editingTrip?.plannedActivities?.some(a => a.lat && a.lng) ? (
+                                  <MapComponent 
+                                    points={editingTrip.plannedActivities
+                                      .filter(a => a.lat && a.lng)
+                                      .map(a => ({
+                                        lat: a.lat!,
+                                        lng: a.lng!,
+                                        name: a.title
+                                      }))
+                                    } 
+                                  />
+                                ) : (
+                                  <div className="h-[400px] bg-default-100 rounded-3xl flex flex-col items-center justify-center border-2 border-dashed border-divider">
+                                    <IoMapOutline size={48} className="text-default-300 mb-4" />
+                                    <p className="text-default-500 font-bold italic">No location data found in your itinerary</p>
+                                  </div>
+                                )}
+                              </CardBody>
+                            </Card>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              {/* Landmarks */}
+                              <Card className="border-none shadow-2xl shadow-secondary/5 rounded-[2.5rem] bg-background/80 backdrop-blur-md p-6">
+                                <CardBody className="flex flex-col gap-6">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-3 bg-secondary/10 rounded-2xl text-secondary">
+                                      <IoFlagOutline size={24} />
+                                    </div>
+                                    <h4 className="text-xl font-black italic text-secondary-900">Landmarks</h4>
+                                  </div>
+                                  <ScrollShadow className="h-[450px]" hideScrollBar>
+                                    <div className="flex flex-col gap-4">
+                                      {currentDest?.landmarks?.map((landmark) => (
+                                        <div key={landmark.id} className="p-5 rounded-3xl bg-secondary/5 border-2 border-transparent hover:border-secondary/20 transition-all group">
+                                          <div className="flex justify-between items-start">
+                                            <div>
+                                              <p className="font-bold text-lg group-hover:text-secondary transition-colors">{landmark.name}</p>
+                                              <p className="text-xs text-secondary-600 font-black uppercase tracking-widest mt-1">{landmark.type}</p>
+                                            </div>
+                                            <div className="p-2 bg-background rounded-xl shadow-sm">
+                                              <IoLocationOutline size={18} className="text-secondary" />
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </ScrollShadow>
+                                </CardBody>
+                              </Card>
+
+                              {/* Restaurants */}
+                              <Card className="border-none shadow-2xl shadow-success/5 rounded-[2.5rem] bg-background/80 backdrop-blur-md p-6">
+                                <CardBody className="flex flex-col gap-6">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-3 bg-success/10 rounded-2xl text-success">
+                                      <IoRestaurantOutline size={24} />
+                                    </div>
+                                    <h4 className="text-xl font-black italic text-success-900">Local Dining</h4>
+                                  </div>
+                                  <ScrollShadow className="h-[450px]" hideScrollBar>
+                                    <div className="flex flex-col gap-4">
+                                      {currentDest?.localRestaurants?.map((restaurant) => (
+                                        <div key={restaurant.id} className="p-5 rounded-3xl bg-success/5 border-2 border-transparent hover:border-success/20 transition-all group">
+                                          <div className="flex justify-between items-start">
+                                            <div>
+                                              <p className="font-bold text-lg group-hover:text-success transition-colors">{restaurant.name}</p>
+                                              <p className="text-xs text-success-600 font-black uppercase tracking-widest mt-1">{restaurant.cuisine}</p>
+                                            </div>
+                                            <Chip size="sm" variant="flat" color="success" className="font-black">{restaurant.priceRange}</Chip>
+                                          </div>
+                                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-success/10">
+                                            <div className="flex items-center gap-1 text-warning">
+                                              <IoStar size={12} />
+                                              <span className="text-xs font-black">{restaurant.rating}</span>
+                                            </div>
+                                            <p className="text-[10px] text-default-400 font-bold italic">{restaurant.address}</p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </ScrollShadow>
+                                </CardBody>
+                              </Card>
+                            </div>
+                          </div>
+                        </Tab>
+
+                        <Tab 
+                          key="accommodation" 
+                          title={
+                            <div className="flex items-center gap-2">
+                              <IoBedOutline size={20} />
+                              <span>Accommodation</span>
+                            </div>
+                          }
+                        >
+                          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <Card className="border-none shadow-2xl shadow-secondary/5 rounded-[2.5rem] bg-background/80 backdrop-blur-md p-6">
+                              <CardBody className="flex flex-col gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <div className="flex flex-col gap-6">
+                                    <Input
+                                      name="hotelName"
+                                      label="Hotel Name"
+                                      placeholder="e.g. The Grand Paris"
+                                      defaultValue={editingTrip?.accommodation?.hotelName}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-secondary/5 border-2 border-transparent focus-within:border-secondary/50 transition-all px-6",
+                                        label: "font-black text-secondary-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                    <Input
+                                      name="hotelAddress"
+                                      label="Address"
+                                      placeholder="Full hotel address"
+                                      defaultValue={editingTrip?.accommodation?.address}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-secondary/5 border-2 border-transparent focus-within:border-secondary/50 transition-all px-6",
+                                        label: "font-black text-secondary-900 italic mb-2 ml-2"
+                                      }}
+                                      startContent={<IoLocationOutline className="text-secondary" />}
+                                    />
+                                    <Input
+                                      name="confirmationId"
+                                      label="Confirmation ID"
+                                      placeholder="Booking reference"
+                                      defaultValue={editingTrip?.accommodation?.confirmationId}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-secondary/5 border-2 border-transparent focus-within:border-secondary/50 transition-all px-6",
+                                        label: "font-black text-secondary-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-6">
+                                    <Input
+                                      name="checkInDate"
+                                      label="Check-in Date"
+                                      type="date"
+                                      placeholder=" "
+                                      defaultValue={formatDateForInput(editingTrip?.accommodation?.checkInDate)}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-secondary/5 border-2 border-transparent focus-within:border-secondary/50 transition-all px-6",
+                                        label: "font-black text-secondary-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                    <Input
+                                      name="checkOutDate"
+                                      label="Check-out Date"
+                                      type="date"
+                                      placeholder=" "
+                                      defaultValue={formatDateForInput(editingTrip?.accommodation?.checkOutDate)}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-secondary/5 border-2 border-transparent focus-within:border-secondary/50 transition-all px-6",
+                                        label: "font-black text-secondary-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </CardBody>
+                            </Card>
+                          </div>
+                        </Tab>
+
+                        <Tab 
+                          key="transport" 
+                          title={
+                            <div className="flex items-center gap-2">
+                              <IoAirplaneOutline size={20} />
+                              <span>Transport</span>
+                            </div>
+                          }
+                        >
+                          <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <Card className="border-none shadow-2xl shadow-warning/5 rounded-[2.5rem] bg-background/80 backdrop-blur-md p-6">
+                              <CardBody className="flex flex-col gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                  <div className="flex flex-col gap-6">
+                                    <Input
+                                      name="carrier"
+                                      label="Carrier / Airline"
+                                      placeholder="e.g. Air France"
+                                      defaultValue={editingTrip?.transport?.carrier}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-warning/5 border-2 border-transparent focus-within:border-warning/50 transition-all px-6",
+                                        label: "font-black text-warning-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                    <Input
+                                      name="seatNumber"
+                                      label="Seat Number"
+                                      placeholder="e.g. 14A"
+                                      defaultValue={editingTrip?.transport?.seatNumber}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-warning/5 border-2 border-transparent focus-within:border-warning/50 transition-all px-6",
+                                        label: "font-black text-warning-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                    <div className="flex flex-col w-full gap-2 mt-4">
+                                      <label className="font-black text-warning-900 italic ml-2">Ticket / Boarding Pass</label>
+                                      <div className="relative group overflow-hidden rounded-2xl border-2 border-dashed border-warning/30 bg-warning/5 p-8 flex flex-col items-center justify-center transition-all hover:border-warning/50 hover:bg-warning/10 cursor-pointer">
+                                        <input
+                                          type="file"
+                                          name="ticketFile"
+                                          accept="image/*,.pdf"
+                                          className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                        />
+                                        <IoCloudUploadOutline size={32} className="text-warning mb-2 group-hover:scale-110 transition-transform" />
+                                        <span className="text-sm font-bold text-warning-900">Upload New File</span>
+                                        {editingTrip?.transport?.ticketFile && (
+                                          <div className="mt-4 flex items-center gap-2 bg-success/10 text-success px-4 py-1.5 rounded-full text-xs font-black">
+                                            <IoCheckmarkCircleOutline size={16} />
+                                            FILE SAVED
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-6">
+                                    <Input
+                                      name="departureTime"
+                                      label="Departure Time"
+                                      type="datetime-local"
+                                      placeholder=" "
+                                      disableAnimation={true}
+                                      defaultValue={formatDateTimeForInput(editingTrip?.transport?.departureTime)}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-warning/5 border-2 border-transparent focus-within:border-warning/50 transition-all px-6",
+                                        label: "font-black text-warning-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                    <Input
+                                      name="arrivalTime"
+                                      label="Arrival Time"
+                                      type="datetime-local"
+                                      placeholder=" "
+                                      disableAnimation={true}
+                                      defaultValue={formatDateTimeForInput(editingTrip?.transport?.arrivalTime)}
+                                      variant="flat"
+                                      labelPlacement="outside"
+                                      classNames={{ 
+                                        inputWrapper: "rounded-2xl h-14 bg-warning/5 border-2 border-transparent focus-within:border-warning/50 transition-all px-6",
+                                        label: "font-black text-warning-900 italic mb-2 ml-2"
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </CardBody>
+                            </Card>
+                          </div>
+                        </Tab>
+                      </Tabs>
                     </Form>
                   </div>
                 </ScrollShadow>
               </ModalBody>
-              <ModalFooter className="w-full flex justify-between">
+              <ModalFooter className="w-full flex justify-between bg-background/80 backdrop-blur-md border-t border-divider py-6 px-10">
                 <Button
                   color="danger"
                   variant="flat"
-                  className="font-bold rounded-xl px-6"
+                  className="font-black rounded-2xl h-12 px-6 italic"
                   onPress={() => onDeleteTrip(editingTrip!.id, onClose)}
-                  startContent={<IoTrashOutline size={18} />}
+                  startContent={<IoTrashOutline size={20} />}
                 >
                   Delete Trip
                 </Button>
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                   <Button
                     color="default"
                     variant="light"
-                    className="font-bold"
+                    className="font-black h-12 px-6 rounded-2xl italic"
                     onPress={onClose}
                   >
                     Cancel
@@ -1542,9 +1993,9 @@ function RouteComponent() {
                     color="primary"
                     type="submit"
                     form="edit-trip-form"
-                    className="font-bold px-8 rounded-xl shadow-lg shadow-primary/20"
+                    className="font-black h-12 px-10 rounded-2xl shadow-xl shadow-primary/20 italic bg-primary text-white"
                   >
-                    Save Changes
+                    Save All Changes
                   </Button>
                 </div>
               </ModalFooter>

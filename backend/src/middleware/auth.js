@@ -9,6 +9,10 @@ const authMiddleware = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
+    if (!token || token === 'null' || token === 'undefined') {
+        return res.status(401).json({ message: 'Authorization denied, invalid token' });
+    }
+
     try {
         // 1. Verify token signature
         const decoded = jwt.verify(token, process.env.JWT_SECRET);

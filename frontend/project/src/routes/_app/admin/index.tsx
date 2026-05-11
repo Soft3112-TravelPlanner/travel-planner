@@ -38,11 +38,10 @@ import {
 } from "react-icons/io5";
 import { motion } from "framer-motion";
 import {
-  getAllDestinations,
-  saveDestination,
-  deleteDestination,
-} from "@/utils/destinations";
-import { REVIEWS_STORAGE_KEY, MODERATION_LOGS_KEY } from "@/constants/storage";
+  REVIEWS_STORAGE_KEY,
+  MODERATION_LOGS_KEY,
+  PROFILE_STORAGE_KEY,
+} from "@/constants/storage";
 import type { Destination, Landmark, Restaurant } from "@/interfaces";
 import { MapComponent } from "@/components/mapComponent";
 
@@ -54,6 +53,15 @@ function AdminComponent() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
+
+  const token = (() => {
+    try {
+      const stored = localStorage.getItem(PROFILE_STORAGE_KEY);
+      return stored ? JSON.parse(stored).token : null;
+    } catch {
+      return null;
+    }
+  })();
 
   const {
     isOpen: isDestModalOpen,
@@ -79,75 +87,135 @@ function AdminComponent() {
     refreshData();
   }, []);
 
-  const refreshData = () => {
-    setDestinations(getAllDestinations());
-    const storedReviews = localStorage.getItem(REVIEWS_STORAGE_KEY);
-    setReviews(storedReviews ? JSON.parse(storedReviews) : []);
+  const refreshData = async () => {
+    // Fetch destinations from backend
+    try {
+      const response = await fetch("http://localhost:3001/api/destinations", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDestinations(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch destinations", error);
+    }
+
+    // Fetch reviews from backend
+    try {
+      const response = await fetch("http://localhost:3001/api/reviews/all", { 
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setReviews(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch reviews", error);
+    }
+
     const storedLogs = localStorage.getItem(MODERATION_LOGS_KEY);
     setLogs(storedLogs ? JSON.parse(storedLogs) : []);
   };
 
-  const handleSaveDest = (onClose: () => void) => {
+  const handleSaveDest = async (onClose: () => void) => {
     if (!editingDest?.name || !editingDest.city) return;
 
-    const newDest: Destination = {
-      id: editingDest.id || Date.now().toString(),
+    const payload = {
       name: editingDest.name,
-      city: editingDest.city,
-      country: editingDest.country || "",
       description: editingDest.description || "",
-      mainImageUrl: editingDest.mainImageUrl || "",
-      coordinates: editingDest.coordinates || { lat: 0, lng: 0 },
-      landmarks: editingDest.landmarks || [],
-      localRestaurants: editingDest.localRestaurants || [],
-      estimatedBudget: editingDest.estimatedBudget || 0,
-      averageRating: editingDest.averageRating || 4.5,
+      city: editingDest.city || "",
+      country: editingDest.country || "",
+      lat: editingDest.coordinates?.lat || 0,
+      lng: editingDest.coordinates?.lng || 0,
+      estimated_cost: editingDest.estimatedBudget || 0,
+      rating: editingDest.averageRating || 4.5,
+      localRestaurants: editingDest.localRestaurants || []
     };
 
-    saveDestination(newDest);
-    refreshData();
-    onClose();
-  };
+    const method = editingDest.id ? "PUT" : "POST";
+    const url = editingDest.id 
+      ? `http://localhost:3001/api/destinations/${editingDest.id}` 
+      : "http://localhost:3001/api/destinations";
 
-  const handleDeleteDest = (id: string | number) => {
-    if (confirm("Are you sure you want to delete this destination?")) {
-      deleteDestination(id);
-      refreshData();
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        refreshData();
+        onClose();
+      }
+    } catch (error) {
+      console.error("Failed to save destination", error);
     }
   };
 
-  const handleDeleteReview = (reviewId: string) => {
-    if (confirm("Are you sure you want to delete this review?")) {
-      const updatedReviews = reviews.filter((r) => r.id !== reviewId);
-      const deletedReview = reviews.find((r) => r.id === reviewId);
-
-      localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(updatedReviews));
-
-      // Yapan adminin e-posta bilgisini bulma
-      let adminName = "Admin";
+  const handleDeleteDest = async (id: string | number) => {
+    if (confirm("Are you sure you want to delete this destination?")) {
       try {
-        const profileStr = localStorage.getItem("travel-planner-profile");
-        if (profileStr) {
-          const profile = JSON.parse(profileStr);
-          if (profile.user && profile.user.email) {
-            adminName = profile.user.email.split('@')[0];
-          }
+        const response = await fetch(`http://localhost:3001/api/destinations/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          refreshData();
         }
-      } catch(e) {}
+      } catch (error) {
+        console.error("Failed to delete destination", error);
+      }
+    }
+  };
 
-      // Log moderation action
-      const newLog = {
-        id: Date.now().toString(),
-        action: "DELETE_REVIEW",
-        targetId: reviewId,
-        targetContent: deletedReview?.text || "N/A",
-        adminName: adminName,
-        timestamp: new Date().toISOString(),
-      };
-      const updatedLogs = [newLog, ...logs];
-      localStorage.setItem(MODERATION_LOGS_KEY, JSON.stringify(updatedLogs));
+  const handleDeleteReview = async (reviewId: string) => {
+    if (confirm("Are you sure you want to delete this review?")) {
+      try {
+        const response = await fetch(`http://localhost:3001/api/reviews/${reviewId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
-      refreshData();
+        if (response.ok) {
+          const deletedReview = reviews.find((r) => String(r.id) === String(reviewId));
+          
+          // Yapan adminin e-posta bilgisini bulma
+          let adminName = "Admin";
+          try {
+            const profileStr = localStorage.getItem("travel-planner-profile");
+            if (profileStr) {
+              const profile = JSON.parse(profileStr);
+              if (profile.user && profile.user.email) {
+                adminName = profile.user.email.split('@')[0];
+              }
+            }
+          } catch(e) {}
+
+          // Log moderation action
+          const newLog = {
+            id: Date.now().toString(),
+            action: "DELETE_REVIEW",
+            targetId: reviewId,
+            targetContent: deletedReview?.text || "N/A",
+            adminName: adminName,
+            timestamp: new Date().toISOString(),
+          };
+          const updatedLogs = [newLog, ...logs];
+          localStorage.setItem(MODERATION_LOGS_KEY, JSON.stringify(updatedLogs));
+          setLogs(updatedLogs);
+
+          refreshData();
+        } else {
+          alert("Failed to delete review on server.");
+        }
+      } catch (error) {
+        console.error("Failed to delete review", error);
+      }
     }
   };
 

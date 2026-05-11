@@ -15,34 +15,32 @@ export function RouteComponent() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const checkAdmin = () => {
+    const checkState = () => {
       setIsAdmin(localStorage.getItem("travel-planner-is-admin") === "true");
+      
+      const profileStr = localStorage.getItem(PROFILE_STORAGE_KEY);
+      if (profileStr) {
+        try {
+          const profile = JSON.parse(profileStr);
+          setIsLoggedIn(!!profile?.token);
+        } catch (e) {
+          setIsLoggedIn(false);
+        }
+      } else {
+        setIsLoggedIn(false);
+      }
     };
-    checkAdmin();
-    // Also listen for storage changes in same window
-    window.addEventListener("storage", checkAdmin);
-    // Custom event for same-page updates
-    const interval = setInterval(checkAdmin, 1000); 
+    
+    checkState();
+    window.addEventListener("storage", checkState);
+    const interval = setInterval(checkState, 1000); 
     
     return () => {
-      window.removeEventListener("storage", checkAdmin);
+      window.removeEventListener("storage", checkState);
       clearInterval(interval);
     };
   }, []);
 
-  useEffect(() => {
-    const profileStr = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (profileStr) {
-      try {
-        const profile = JSON.parse(profileStr);
-        if (profile?.token) {
-          setIsLoggedIn(true);
-        }
-      } catch (e) {
-        // ignore JSON parse error
-      }
-    }
-  }, []);
   return (
     <HeroUIProvider>
       <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -112,7 +110,14 @@ export function RouteComponent() {
             ) : (
               <>
                 <NavbarItem>
-                  <Button isIconOnly as={Link} to="/profile" variant="light" radius="full">
+                  <Button 
+                    isIconOnly 
+                    as={Link} 
+                    to="/profile" 
+                    variant="light" 
+                    radius="full"
+                    title="Profile"
+                  >
                     <IoPerson size={20} />
                   </Button>
                 </NavbarItem>
