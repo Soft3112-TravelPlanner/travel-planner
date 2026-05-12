@@ -67,7 +67,7 @@ function RouteComponent() {
     return stored ? parseFloat(stored) : 5000;
   });
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [categoryTotals, setCategoryTotals] = useState<Record<string, number>>({});
+  const [, setCategoryTotals] = useState<Record<string, number>>({});
   const [totalSpent, setTotalSpent] = useState(0);
 
   // Form drafts
