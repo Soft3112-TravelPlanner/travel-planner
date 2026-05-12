@@ -183,7 +183,7 @@ function RouteComponent() {
 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [destinations, setDestinations] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
