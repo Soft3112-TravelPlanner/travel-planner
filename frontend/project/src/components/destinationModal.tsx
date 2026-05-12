@@ -116,7 +116,7 @@ function ChangeView({ center }: { center: [number, number] }) {
 }
 
 // 3. Küçük Harita Bileşeni
-const MapSection = ({
+export const MapSection = ({
   destination,
   nearbyPoints,
 }: {
@@ -226,17 +226,24 @@ export const DestinationModal = ({
   // Yorumları State'te tutuyoruz
   const [reviews, setReviews] = useState<any[]>([]);
 
-  // Modal her açıldığında yorumları localStorage'dan güncel çek
+  // Modal her açıldığında yorumları backend'den güncel çek
   useEffect(() => {
-    if (isOpen) {
-      try {
-        const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
-        if (stored) setReviews(JSON.parse(stored));
-      } catch {
-        setReviews([]);
-      }
+    if (isOpen && destination) {
+      const fetchReviews = async () => {
+        try {
+          const response = await fetch(`http://localhost:3001/api/reviews/destination/${destination.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            setReviews(data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch reviews:", error);
+          setReviews([]);
+        }
+      };
+      fetchReviews();
     }
-  }, [isOpen]);
+  }, [isOpen, destination]);
 
   // Sadece şu anki destinasyonun yorumlarını filtrele
   const destinationReviews = reviews.filter(
@@ -267,45 +274,42 @@ export const DestinationModal = ({
 
   const isAdmin = localStorage.getItem("travel-planner-is-admin") === "true";
 
-  const handleRemoveReview = (reviewId: string) => {
+  const handleRemoveReview = async (reviewId: string) => {
     if (!window.confirm("Are you sure you want to delete this review?")) return;
 
+    // Profil bilgisinden adminin tokenini alıyoruz
+    let token = "";
     try {
-      const stored = localStorage.getItem(REVIEWS_STORAGE_KEY);
-      if (stored) {
-        const allReviews = JSON.parse(stored);
-        const deletedReview = allReviews.find((r: any) => String(r.id) === String(reviewId));
-        const updated = allReviews.filter((r: any) => String(r.id) !== String(reviewId));
-        localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(updated));
-        setReviews(updated);
+      const profileStr = localStorage.getItem("travel-planner-profile");
+      if (profileStr) {
+        const profile = JSON.parse(profileStr);
+        token = profile.token;
+      }
+    } catch(e) {}
 
-        // Profil bilgisinden adminin adını (e-postasını) alıyoruz
-        let adminName = "Admin";
-        try {
-          const profileStr = localStorage.getItem("travel-planner-profile");
-          if (profileStr) {
-            const profile = JSON.parse(profileStr);
-            if (profile.user && profile.user.email) {
-              adminName = profile.user.email.split('@')[0];
-            }
-          }
-        } catch(e) {}
+    if (!token) {
+      alert("No authentication found.");
+      return;
+    }
 
-        // Audit log aligned with Admin Panel structure
-        const logEntry = {
-          id: Date.now().toString(),
-          action: "DELETE_REVIEW",
-          targetId: reviewId,
-          targetContent: deletedReview?.text || "N/A",
-          adminName: adminName,
-          timestamp: new Date().toISOString(),
-        };
-        const storedLogs = localStorage.getItem(MODERATION_LOGS_KEY);
-        const logs = storedLogs ? JSON.parse(storedLogs) : [];
-        localStorage.setItem(MODERATION_LOGS_KEY, JSON.stringify([logEntry, ...logs]));
+    try {
+      const response = await fetch(`http://localhost:3001/api/reviews/${reviewId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        setReviews(prev => prev.filter(r => String(r.id) !== String(reviewId)));
+        
+        // Audit log logic can stay for now if needed, or moved to backend
+        // For now let's just keep the local UI sync
+      } else {
+        const err = await response.json();
+        alert(err.message || "Failed to delete review.");
       }
     } catch (err) {
       console.error("Failed to delete review:", err);
+      alert("Failed to delete review on server.");
     }
   };
 

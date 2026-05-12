@@ -57,6 +57,120 @@ const initDB = async () => {
             )
         `);
 
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS destinations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                city VARCHAR(255),
+                country VARCHAR(255),
+                lat DECIMAL(10,8),
+                lng DECIMAL(11,8),
+                estimated_cost DECIMAL(10,2),
+                rating DECIMAL(3,1),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        // Ensure city and country columns exist for older schemas
+        const [columns] = await connection.query('SHOW COLUMNS FROM destinations');
+        const columnNames = columns.map(c => c.Field);
+        if (!columnNames.includes('city')) {
+            await connection.query('ALTER TABLE destinations ADD COLUMN city VARCHAR(255) AFTER description');
+        }
+        if (!columnNames.includes('country')) {
+            await connection.query('ALTER TABLE destinations ADD COLUMN country VARCHAR(255) AFTER city');
+        }
+        if (!columnNames.includes('main_image_url')) {
+            await connection.query('ALTER TABLE destinations ADD COLUMN main_image_url TEXT AFTER country');
+        }
+        if (!columnNames.includes('moods')) {
+            await connection.query('ALTER TABLE destinations ADD COLUMN moods JSON AFTER main_image_url');
+        }
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS restaurants (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                destination_id INT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                cuisine VARCHAR(100),
+                lat DECIMAL(10,8),
+                lng DECIMAL(11,8),
+                FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS landmarks (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                destination_id INT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                type VARCHAR(100),
+                lat DECIMAL(10,8),
+                lng DECIMAL(11,8),
+                FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS expenses (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                trip_id INT NULL,
+                title VARCHAR(255) NOT NULL,
+                amount DECIMAL(10,2) NOT NULL,
+                category VARCHAR(100),
+                date DATE,
+                receipt_photo VARCHAR(255) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS trips (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                destination_id INT NOT NULL,
+                start_date DATE NOT NULL,
+                end_date DATE NOT NULL,
+                accommodation JSON,
+                transport JSON,
+                checklist JSON,
+                planned_activities JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                trip_id INT NULL,
+                destination_id INT NOT NULL,
+                rating INT NOT NULL,
+                text TEXT,
+                photos JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE,
+                FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE SET NULL
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS favorites (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                destination_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_favorite (user_id, destination_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
+            )
+        `);
+
         console.log('Database tables initialized');
     } catch (error) {
         console.error('Error initializing database:', error);

@@ -9,6 +9,10 @@ const authMiddleware = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
+    if (!token || token === 'null' || token === 'undefined') {
+        return res.status(401).json({ message: 'Authorization denied, invalid token' });
+    }
+
     try {
         // 1. Verify token signature
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -35,6 +39,9 @@ const authMiddleware = async (req, res, next) => {
         req.token = token; // Store token for logout
         next();
     } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Oturum süresi doldu, lütfen tekrar giriş yapın', code: 'TOKEN_EXPIRED' });
+        }
         console.error('Auth middleware error:', error);
         res.status(401).json({ message: 'Token is not valid' });
     }

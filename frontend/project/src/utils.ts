@@ -10,3 +10,14 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
+
+export const getAuthToken = () => {
+  try {
+    const profileStr = localStorage.getItem("travel-planner-profile");
+    if (profileStr) {
+      const profile = JSON.parse(profileStr);
+      return profile.token;
+    }
+  } catch (e) {}
+  return null;
+};

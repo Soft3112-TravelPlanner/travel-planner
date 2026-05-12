@@ -26,6 +26,7 @@ import {
   IoCloseCircleOutline,
 } from "react-icons/io5";
 import { motion } from "framer-motion";
+import { PROFILE_STORAGE_KEY } from "@/constants/storage";
 
 export const Route = createFileRoute('/_app/budget/')({
   component: RouteComponent,
@@ -45,7 +46,7 @@ interface Expense {
   amount: number;
   category: Category;
   date: string;
-  receiptPhoto?: string;
+  receipt_photo?: string;
 }
 
 const CATEGORIES: { label: Category; icon: any; color: "warning" | "primary" | "secondary" | "success" | "danger" | "default" }[] = [
@@ -61,22 +62,47 @@ const STORAGE_KEY = "travel-planner-budget-expenses";
 const BUDGET_STORAGE_KEY = "travel-planner-total-budget";
 
 function RouteComponent() {
-  // State definitions
   const [totalBudget, setTotalBudget] = useState<number>(() => {
     const stored = localStorage.getItem(BUDGET_STORAGE_KEY);
     return stored ? parseFloat(stored) : 5000;
   });
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  });
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [, setCategoryTotals] = useState<Record<string, number>>({});
+  const [totalSpent, setTotalSpent] = useState(0);
 
   // Form drafts
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category>("Food");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null);
+  const [receiptPhotoFile, setReceiptPhotoFile] = useState<File | null>(null);
+  const [receiptPhotoPreview, setReceiptPhotoPreview] = useState<string | null>(null);
+
+  const token = useMemo(() => {
+    const stored = localStorage.getItem(PROFILE_STORAGE_KEY);
+    return stored ? JSON.parse(stored).token : null;
+  }, []);
+
+  const fetchExpenses = async () => {
+    if (!token) return;
+    try {
+      const response = await fetch("http://localhost:3001/api/expenses", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setExpenses(data.expenses);
+        setTotalSpent(data.totalSum);
+        setCategoryTotals(data.categoryBreakdown);
+      }
+    } catch (error) {
+      console.error("Failed to fetch expenses", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [token]);
 
   // Filter state
   const [filterDate, setFilterDate] = useState<string>("All");
@@ -92,11 +118,11 @@ function RouteComponent() {
       : expenses.filter((e) => e.date === filterDate);
   }, [expenses, filterDate]);
 
-  const categoryTotals = useMemo(() => {
+  const filteredCategoryTotals = useMemo(() => {
     const totals: Record<string, number> = {};
     CATEGORIES.forEach((c) => (totals[c.label] = 0));
     filteredExpenses.forEach((e) => {
-      if (totals[e.category] !== undefined) totals[e.category] += e.amount;
+      if (totals[e.category] !== undefined) totals[e.category] += parseFloat(e.amount as any);
     });
     return totals;
   }, [filteredExpenses]);
@@ -111,36 +137,27 @@ function RouteComponent() {
   };
 
   const chartData = useMemo(() => {
-    const total = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
+    const total = Object.values(filteredCategoryTotals).reduce((a, b) => a + b, 0);
     let cumulative = 0;
     return CATEGORIES.map((cat) => {
-      const value = categoryTotals[cat.label];
+      const value = filteredCategoryTotals[cat.label];
       const percentage = total > 0 ? (value / total) * 100 : 0;
       const strokeDasharray = `${percentage} ${100 - percentage}`;
       const strokeDashoffset = 25 - cumulative;
       cumulative += percentage;
       return { ...cat, value, percentage, strokeDasharray, strokeDashoffset, color: cat.color };
     }).filter((c) => c.value > 0);
-  }, [categoryTotals]);
+  }, [filteredCategoryTotals]);
 
   const filteredTotalSpent = useMemo(() => {
-    return filteredExpenses.reduce((acc, curr) => acc + curr.amount, 0);
+    return filteredExpenses.reduce((acc, curr) => acc + parseFloat(curr.amount as any), 0);
   }, [filteredExpenses]);
-
-  // Sync with local storage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
-  }, [expenses]);
 
   useEffect(() => {
     localStorage.setItem(BUDGET_STORAGE_KEY, totalBudget.toString());
   }, [totalBudget]);
 
   // Real-time calculations
-  const totalSpent = useMemo(() => {
-    return expenses.reduce((acc, curr) => acc + curr.amount, 0);
-  }, [expenses]);
-
   const remainingBudget = totalBudget - totalSpent;
   const progressPercentage = Math.min((totalSpent / totalBudget) * 100, 100);
 
@@ -148,33 +165,58 @@ function RouteComponent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setReceiptPhotoFile(file);
     const reader = new FileReader();
-    reader.onloadend = () => setReceiptPhoto(reader.result as string);
+    reader.onloadend = () => setReceiptPhotoPreview(reader.result as string);
     reader.readAsDataURL(file);
   };
 
   // Handlers
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !amount) return;
+    if (!title || !amount || !token) return;
 
-    const newExpense: Expense = {
-      id: Date.now().toString(),
-      title,
-      amount: parseFloat(amount),
-      category,
-      date,
-      receiptPhoto: receiptPhoto || undefined,
-    };
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("amount", amount);
+    formData.append("category", category);
+    formData.append("date", date);
+    if (receiptPhotoFile) {
+      formData.append("receipt_photo", receiptPhotoFile);
+    }
 
-    setExpenses((prev) => [newExpense, ...prev]);
-    setTitle("");
-    setAmount("");
-    setReceiptPhoto(null);
+    try {
+      const response = await fetch("http://localhost:3001/api/expenses", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      if (response.ok) {
+        setTitle("");
+        setAmount("");
+        setReceiptPhotoFile(null);
+        setReceiptPhotoPreview(null);
+        fetchExpenses();
+      }
+    } catch (error) {
+      console.error("Failed to add expense", error);
+    }
   };
 
-  const handleDeleteExpense = (id: string) => {
-    setExpenses((prev) => prev.filter((ex) => ex.id !== id));
+  const handleDeleteExpense = async (id: string) => {
+    if (!token) return;
+    try {
+      const response = await fetch(`http://localhost:3001/api/expenses/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        fetchExpenses();
+      }
+    } catch (error) {
+      console.error("Failed to delete expense", error);
+    }
   };
 
   return (
@@ -321,7 +363,7 @@ function RouteComponent() {
             {/* Legend */}
             <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
               {CATEGORIES.map((cat) => {
-                const value = categoryTotals[cat.label];
+                const value = filteredCategoryTotals[cat.label];
                 if (value === 0 && filterDate !== "All") return null;
                 const percentage = filteredTotalSpent > 0 ? ((value / filteredTotalSpent) * 100).toFixed(1) : "0.0";
                 
@@ -335,7 +377,7 @@ function RouteComponent() {
                       <div className="flex justify-between items-center w-full">
                         <span className="text-xs text-default-500">{percentage}%</span>
                         <span className="font-black text-sm">
-                          ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          ${parseFloat(value as any).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                     </div>
@@ -406,13 +448,16 @@ function RouteComponent() {
                 />
                 <div className="flex flex-col gap-2">
                   <span className="text-sm font-medium text-default-700">Receipt Photo (Optional)</span>
-                  {receiptPhoto ? (
+                  {receiptPhotoPreview ? (
                     <div className="relative w-24 h-24 rounded-xl overflow-hidden shadow-md border border-divider">
-                      <img src={receiptPhoto} alt="Receipt preview" className="w-full h-full object-cover" />
+                      <img src={receiptPhotoPreview} alt="Receipt preview" className="w-full h-full object-cover" />
                       <button
                         type="button"
                         className="absolute top-1 right-1 text-danger bg-white/80 rounded-full"
-                        onClick={() => setReceiptPhoto(null)}
+                        onClick={() => {
+                          setReceiptPhotoFile(null);
+                          setReceiptPhotoPreview(null);
+                        }}
                       >
                         <IoCloseCircleOutline size={20} />
                       </button>
@@ -471,9 +516,15 @@ function RouteComponent() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
-                      {expense.receiptPhoto && (
+                      {expense.receipt_photo && (
                         <div className="hidden sm:block w-12 h-12 rounded-xl overflow-hidden shadow-sm border border-divider shrink-0">
-                          <Image src={expense.receiptPhoto} alt="Receipt" className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform" onClick={() => window.open(expense.receiptPhoto, '_blank')} removeWrapper />
+                          <Image 
+                            src={`http://localhost:3001${expense.receipt_photo}`} 
+                            alt="Receipt" 
+                            className="w-full h-full object-cover cursor-pointer hover:scale-110 transition-transform" 
+                            onClick={() => window.open(`http://localhost:3001${expense.receipt_photo}`, '_blank')} 
+                            removeWrapper 
+                          />
                         </div>
                       )}
                         <span className="font-black text-lg text-foreground">
