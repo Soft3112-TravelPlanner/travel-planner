@@ -80,6 +80,12 @@ const initDB = async () => {
         if (!columnNames.includes('country')) {
             await connection.query('ALTER TABLE destinations ADD COLUMN country VARCHAR(255) AFTER city');
         }
+        if (!columnNames.includes('main_image_url')) {
+            await connection.query('ALTER TABLE destinations ADD COLUMN main_image_url TEXT AFTER country');
+        }
+        if (!columnNames.includes('moods')) {
+            await connection.query('ALTER TABLE destinations ADD COLUMN moods JSON AFTER main_image_url');
+        }
 
         await connection.query(`
             CREATE TABLE IF NOT EXISTS restaurants (
@@ -87,6 +93,18 @@ const initDB = async () => {
                 destination_id INT NOT NULL,
                 name VARCHAR(255) NOT NULL,
                 cuisine VARCHAR(100),
+                lat DECIMAL(10,8),
+                lng DECIMAL(11,8),
+                FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS landmarks (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                destination_id INT NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                type VARCHAR(100),
                 lat DECIMAL(10,8),
                 lng DECIMAL(11,8),
                 FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
@@ -122,6 +140,34 @@ const initDB = async () => {
                 planned_activities JSON,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS reviews (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                trip_id INT NULL,
+                destination_id INT NOT NULL,
+                rating INT NOT NULL,
+                text TEXT,
+                photos JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE,
+                FOREIGN KEY (trip_id) REFERENCES trips(id) ON DELETE SET NULL
+            )
+        `);
+
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS favorites (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                destination_id INT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_favorite (user_id, destination_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (destination_id) REFERENCES destinations(id) ON DELETE CASCADE
             )
         `);
 

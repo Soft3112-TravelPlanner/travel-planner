@@ -7,6 +7,7 @@ const expenseRoutes = require('./routes/expenses');
 const destinationRoutes = require('./routes/destinations');
 const restaurantRoutes = require('./routes/restaurants');
 const tripRoutes = require('./routes/trips');
+const favoriteRoutes = require('./routes/favorites');
 const reviewRoutes = require('./routes/reviews');
 const path = require('path');
 
@@ -26,6 +27,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/destinations', destinationRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/trips', tripRoutes);
+app.use('/api/favorites', favoriteRoutes);
 app.use('/api/reviews', reviewRoutes);
 
 // Static files

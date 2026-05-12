@@ -59,8 +59,9 @@ import {
 import { motion } from "framer-motion";
 import { getAllDestinations } from "@/utils/destinations";
 import { MapComponent } from "@/components/mapComponent";
+import { getAuthToken } from "@/utils";
 
-const destinations = getAllDestinations();
+// Note: destinations will be fetched in the component state
 
 export const Route = createFileRoute("/_app/trips/")({
   component: RouteComponent,
@@ -181,7 +182,27 @@ function RouteComponent() {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
 
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [destinations, setDestinations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fetchDestinations = async () => {
+    try {
+      const stored = localStorage.getItem("travel-planner-profile");
+      const token = stored ? JSON.parse(stored).token : null;
+
+      const response = await fetch("http://localhost:3001/api/destinations", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDestinations(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch destinations:", error);
+    }
+  };
 
   const formatDateForInput = (dateStr?: string) => {
     if (!dateStr) return "";
@@ -197,16 +218,6 @@ function RouteComponent() {
     return date.toISOString().slice(0, 16);
   };
 
-  const getAuthToken = () => {
-    try {
-      const profileStr = localStorage.getItem("travel-planner-profile");
-      if (profileStr) {
-        const profile = JSON.parse(profileStr);
-        return profile.token;
-      }
-    } catch (e) {}
-    return null;
-  };
 
   const fetchTrips = async () => {
     setIsLoading(true);
@@ -280,6 +291,7 @@ function RouteComponent() {
 
   useEffect(() => {
     fetchTrips();
+    fetchDestinations();
   }, []);
 
   const [checklistTripId, setChecklistTripId] = useState<string | null>(null);
@@ -789,6 +801,7 @@ function RouteComponent() {
       transport,
     };
 
+    setIsSaving(true);
     try {
       const response = await fetch("http://localhost:3001/api/trips", {
         method: "POST",
@@ -805,6 +818,8 @@ function RouteComponent() {
       }
     } catch (error) {
       console.error("Failed to add trip:", error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -861,6 +876,7 @@ function RouteComponent() {
     const token = getAuthToken();
     if (!token) return;
 
+    setIsSaving(true);
     try {
       const response = await fetch(
         `http://localhost:3001/api/trips/${editingTrip.id}`,
@@ -880,15 +896,18 @@ function RouteComponent() {
       }
     } catch (error) {
       console.error("Failed to update trip:", error);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const onDeleteTrip = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this trip?")) return;
+  const onDeleteTrip = async (id: string, onClose?: () => void) => {
+    if (!window.confirm("Are you sure you want to delete this trip? All related data will be lost.")) return;
 
     const token = getAuthToken();
     if (!token) return;
 
+    setIsDeleting(true);
     try {
       const response = await fetch(`http://localhost:3001/api/trips/${id}`, {
         method: "DELETE",
@@ -897,9 +916,16 @@ function RouteComponent() {
 
       if (response.ok) {
         await fetchTrips();
+        if (onClose) onClose();
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || "Failed to delete trip.");
       }
     } catch (error) {
       console.error("Failed to delete trip:", error);
+      alert("An error occurred while deleting the trip.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1321,28 +1347,30 @@ function RouteComponent() {
                               }}
                             />
 
-                            <Select
-                              isRequired
-                              name="destinationId"
-                              label="Destination"
-                              placeholder="Where are you going?"
-                              variant="flat"
-                              labelPlacement="outside"
-                              classNames={{ 
-                                trigger: "rounded-2xl h-14 bg-background border-2 border-transparent focus-within:border-primary/50 transition-all px-6 shadow-sm",
-                                label: "font-black text-primary-900 italic mb-2 ml-2"
-                              }}
-                            >
-                              {destinations.map((dest) => (
-                                <SelectItem
-                                  key={dest.id}
-                                  textValue={`${dest.name} (${dest.city}, ${dest.country})`}
-                                  startContent={<IoLocationOutline className="text-primary" />}
-                                >
-                                  {dest.name} ({dest.city}, {dest.country})
-                                </SelectItem>
-                              ))}
-                            </Select>
+                            {destinations.length > 0 && (
+                              <Select
+                                isRequired
+                                name="destinationId"
+                                label="Destination"
+                                placeholder="Where are you going?"
+                                variant="flat"
+                                labelPlacement="outside"
+                                classNames={{ 
+                                  trigger: "rounded-2xl h-14 bg-background border-2 border-transparent focus-within:border-primary/50 transition-all px-6 shadow-sm",
+                                  label: "font-black text-primary-900 italic mb-2 ml-2"
+                                }}
+                              >
+                                {destinations.map((dest) => (
+                                  <SelectItem
+                                    key={dest.id}
+                                    textValue={`${dest.name} (${dest.city}, ${dest.country})`}
+                                    startContent={<IoLocationOutline className="text-primary" />}
+                                  >
+                                    {dest.name} ({dest.city}, {dest.country})
+                                  </SelectItem>
+                                ))}
+                              </Select>
+                            )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               <Input
@@ -1499,6 +1527,7 @@ function RouteComponent() {
                   color="primary"
                   type="submit"
                   form="add-trip-form"
+                  isLoading={isSaving}
                   className="font-black h-12 px-12 rounded-2xl shadow-xl shadow-primary/20 italic bg-primary text-white"
                   startContent={<IoCheckmarkCircleOutline size={20} />}
                 >
@@ -1611,7 +1640,7 @@ function RouteComponent() {
                                   }}
                                 />
 
-                                {editingTrip && (
+                                {editingTrip && destinations.length > 0 && (
                                   <Select
                                     isRequired
                                     name="destinationId"
@@ -1975,6 +2004,7 @@ function RouteComponent() {
                   color="danger"
                   variant="flat"
                   className="font-black rounded-2xl h-12 px-6 italic"
+                  isLoading={isDeleting}
                   onPress={() => onDeleteTrip(editingTrip!.id, onClose)}
                   startContent={<IoTrashOutline size={20} />}
                 >
@@ -1993,6 +2023,7 @@ function RouteComponent() {
                     color="primary"
                     type="submit"
                     form="edit-trip-form"
+                    isLoading={isSaving}
                     className="font-black h-12 px-10 rounded-2xl shadow-xl shadow-primary/20 italic bg-primary text-white"
                   >
                     Save All Changes

@@ -29,10 +29,10 @@ import {
   IoCheckmarkOutline,
   IoMap,
 } from "react-icons/io5";
-import { motion } from "framer-motion";
-import { destinations } from "@/data";
+import { motion, AnimatePresence } from "framer-motion";
 import type { Destination } from "@/interfaces";
 import { DestinationModal } from "@/components/destinationModal";
+import { useEffect } from "react";
 
 export const Route = createFileRoute('/_app/favorites/')({
   component: RouteComponent,
@@ -49,38 +49,87 @@ function RouteComponent() {
   const [addTime, setAddTime] = useState("");
   const [addDuration, setAddDuration] = useState("");
 
-  const [trips, setTrips] = useState<any[]>(() => {
-    try {
-      const stored = localStorage.getItem("travel-planner-trips");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [trips, setTrips] = useState<any[]>([]);
   const [addedStatus, setAddedStatus] = useState<Record<string, boolean>>({});
+  const [togglingFav, setTogglingFav] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState<{ message: string, type: 'success' | 'danger' } | null>(null);
 
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("travel-planner-favorites");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favorites, setFavorites] = useState<string[]>([]);
 
   const favoriteDestinations = useMemo(() => {
     return destinations.filter((dest) => favorites.includes(String(dest.id)));
   }, [favorites]);
 
-  const toggleFavorite = (id: string | number) => {
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const stored = localStorage.getItem("travel-planner-profile");
+        const token = stored ? JSON.parse(stored).token : null;
+        const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const destRes = await fetch("http://localhost:3001/api/destinations", { headers: authHeader });
+        if (destRes.ok) {
+          const data = await destRes.json();
+          setDestinations(data);
+        }
+
+        if (token) {
+          const tripsRes = await fetch("http://localhost:3001/api/trips", { headers: authHeader });
+          if (tripsRes.ok) {
+            const tripsData = await tripsRes.json();
+            const mappedTrips = tripsData.map((t: any) => ({
+              ...t,
+              id: String(t.id),
+              startDate: t.start_date || t.startDate,
+              endDate: t.end_date || t.endDate,
+              destinationId: String(t.destination_id || t.destinationId),
+              plannedActivities: typeof t.planned_activities === 'string' ? JSON.parse(t.planned_activities) : (t.planned_activities || t.plannedActivities || [])
+            }));
+            setTrips(mappedTrips);
+          }
+
+          const favsRes = await fetch("http://localhost:3001/api/favorites", { headers: authHeader });
+          if (favsRes.ok) {
+            const favsData = await favsRes.json();
+            setFavorites(favsData.map(String));
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const toggleFavorite = async (id: string | number) => {
     const strId = String(id);
-    setFavorites((prev) => {
-      const next = prev.includes(strId)
-        ? prev.filter((fid) => fid !== strId)
-        : [...prev, strId];
-      localStorage.setItem("travel-planner-favorites", JSON.stringify(next));
-      return next;
-    });
+    const stored = localStorage.getItem("travel-planner-profile");
+    const token = stored ? JSON.parse(stored).token : null;
+    if (!token) return;
+
+    setTogglingFav(strId);
+    try {
+      const response = await fetch(`http://localhost:3001/api/favorites/toggle/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.isFavorite) {
+          setFavorites(prev => [...prev, strId]);
+          setShowToast({ message: "Added to favorites!", type: "success" });
+        } else {
+          setFavorites(prev => prev.filter(fid => fid !== strId));
+          setShowToast({ message: "Removed from favorites", type: "danger" });
+        }
+        setTimeout(() => setShowToast(null), 3000);
+      }
+    } catch (err) {
+      console.error("Toggle favorite error:", err);
+    } finally {
+      setTogglingFav(null);
+    }
   };
 
   const getTripDays = (trip: any) => {
@@ -113,27 +162,56 @@ function RouteComponent() {
     const dest = destinations.find(d => String(d.id) === String(destId));
     if (!dest) return;
 
-    const updatedTrips = trips.map((trip) => {
-      if (String(trip.id) === tripId) {
-        const plannedActivities = trip.plannedActivities || [];
-        const newActivity = {
-          id: Date.now().toString(),
-          title: dest.name,
-          startTime: addTime,
-          duration: addDuration,
-          dayIndex: Number(addDay),
-        };
-        const newActs = [...plannedActivities, newActivity].sort((a, b) => (a.startTime || "24:00").localeCompare(b.startTime || "24:00"));
-        return { ...trip, plannedActivities: newActs };
-      }
-      return trip;
-    });
+    const targetTrip = trips.find(t => String(t.id) === String(tripId));
+    if (!targetTrip) return;
 
-    setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    setAddedStatus((prev) => ({ ...prev, [destId]: true }));
-    setTimeout(() => setAddedStatus((prev) => ({ ...prev, [destId]: false })), 2000);
-    onClose();
+    const newActivity = {
+      id: Date.now().toString(),
+      title: dest.name,
+      startTime: addTime,
+      duration: addDuration,
+      dayIndex: Number(addDay),
+      lat: dest.coordinates.lat,
+      lng: dest.coordinates.lng,
+    };
+
+    const updatedActivities = [...(targetTrip.plannedActivities || []), newActivity].sort((a, b) => 
+      (a.startTime || "24:00").localeCompare(b.startTime || "24:00")
+    );
+
+    const updatedTrip = { ...targetTrip, plannedActivities: updatedActivities };
+
+    const saveToBackend = async () => {
+      try {
+        const stored = localStorage.getItem("travel-planner-profile");
+        const token = stored ? JSON.parse(stored).token : null;
+
+        const response = await fetch(`http://localhost:3001/api/trips/${tripId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedTrip),
+        });
+
+        if (response.ok) {
+          const tripsRes = await fetch("http://localhost:3001/api/trips", {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (tripsRes.ok) {
+            const allTrips = await tripsRes.json();
+            setTrips(allTrips);
+          }
+          setAddedStatus((prev) => ({ ...prev, [destId]: true }));
+          setTimeout(() => setAddedStatus((prev) => ({ ...prev, [destId]: false })), 2000);
+          onClose();
+        }
+      } catch (err) {
+        console.error("Failed to add activity:", err);
+      }
+    };
+    saveToBackend();
   };
 
   const handleOpenModal = (dest: Destination) => {
@@ -190,6 +268,7 @@ function RouteComponent() {
                             isIconOnly
                             radius="full"
                             size="sm"
+                            isLoading={togglingFav === String(dest.id)}
                             className={`backdrop-blur-md shadow-lg transition-colors ${
                               isFavorite ? "bg-danger text-white" : "bg-white/80 text-black hover:bg-white"
                             }`}
@@ -306,6 +385,27 @@ function RouteComponent() {
         isOpen={isOpen}
         onOpenChange={onOpenChange}
       />
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-[100]"
+          >
+            <div className={`px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 border-2 ${
+              showToast.type === 'success' 
+                ? 'bg-success/90 border-success-200 text-white' 
+                : 'bg-danger/90 border-danger-200 text-white'
+            }`}>
+              {showToast.type === 'success' ? <IoHeart size={20} /> : <IoHeartOutline size={20} />}
+              <span className="font-bold italic">{showToast.message}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Add Activity Modal */}
       <Modal isOpen={isAddOpen} onOpenChange={onAddOpenChange} placement="center" backdrop="blur">

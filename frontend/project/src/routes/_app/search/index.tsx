@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Input,
@@ -49,6 +49,7 @@ import { MOODS } from "@/data";
 import { REVIEWS_STORAGE_KEY } from "@/constants/storage";
 import { DestinationModal } from "@/components/destinationModal";
 import { useDebounce } from "@/hooks/useDebounce";
+import { getAuthToken } from "@/utils";
 import type { Destination } from "@/interfaces";
 
 export const Route = createFileRoute("/_app/search/")({
@@ -58,8 +59,63 @@ export const Route = createFileRoute("/_app/search/")({
 function SearchComponent() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedQuery = useDebounce(searchQuery, 500);
+  const [destinations, setDestinations] = useState<Destination[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const destinations = useMemo(() => getAllDestinations(), []);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const stored = localStorage.getItem("travel-planner-profile");
+        const token = stored ? JSON.parse(stored).token : null;
+        
+        const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // Fetch Destinations
+        const destRes = await fetch("http://localhost:3001/api/destinations", {
+          headers: authHeader
+        });
+        if (destRes.ok) {
+          const data = await destRes.json();
+          setDestinations(data);
+        }
+
+        // Fetch Trips
+        if (token) {
+          const tripsRes = await fetch("http://localhost:3001/api/trips", {
+            headers: authHeader
+          });
+          if (tripsRes.ok) {
+            const tripsData = await tripsRes.json();
+            const mappedTrips = tripsData.map((t: any) => ({
+              ...t,
+              id: String(t.id),
+              startDate: t.start_date || t.startDate,
+              endDate: t.end_date || t.endDate,
+              destinationId: String(t.destination_id || t.destinationId),
+              plannedActivities: typeof t.planned_activities === 'string' ? JSON.parse(t.planned_activities) : (t.planned_activities || t.plannedActivities || [])
+            }));
+            setTrips(mappedTrips);
+          }
+        }
+
+        // Fetch Favorites
+        if (token) {
+          const favsRes = await fetch("http://localhost:3001/api/favorites", {
+            headers: authHeader
+          });
+          if (favsRes.ok) {
+            const favsData = await favsRes.json();
+            setFavorites(favsData.map(String));
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch data", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Bütçe Aralığı State'i: [minValue, maxValue]
   const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 100000]);
@@ -83,25 +139,13 @@ function SearchComponent() {
   const [addTime, setAddTime] = useState("");
   const [addDuration, setAddDuration] = useState("");
 
-  // Gezileri tarayıcıdan çek
-  const [trips, setTrips] = useState<any[]>(() => {
-    try {
-      const stored = localStorage.getItem("travel-planner-trips");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Gezileri API'den çek
+  const [trips, setTrips] = useState<any[]>([]);
   const [addedStatus, setAddedStatus] = useState<Record<string, boolean>>({});
+  const [togglingFav, setTogglingFav] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState<{ message: string, type: 'success' | 'danger' } | null>(null);
 
-  const [favorites, setFavorites] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem("travel-planner-favorites");
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [favorites, setFavorites] = useState<string[]>([]);
 
   const [reviews, setReviews] = useState<any[]>(() => {
     try {
@@ -112,15 +156,36 @@ function SearchComponent() {
     }
   });
 
-  const toggleFavorite = (id: string | number) => {
+  const toggleFavorite = async (id: string | number) => {
     const strId = String(id);
-    setFavorites((prev) => {
-      const next = prev.includes(strId)
-        ? prev.filter((fid) => fid !== strId)
-        : [...prev, strId];
-      localStorage.setItem("travel-planner-favorites", JSON.stringify(next));
-      return next;
-    });
+    const token = getAuthToken();
+    if (!token) {
+      alert("Please login to manage favorites.");
+      return;
+    }
+
+    setTogglingFav(strId);
+    try {
+      const response = await fetch(`http://localhost:3001/api/favorites/toggle/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.isFavorite) {
+          setFavorites(prev => [...prev, strId]);
+          setShowToast({ message: "Added to favorites!", type: "success" });
+        } else {
+          setFavorites(prev => prev.filter(fid => fid !== strId));
+          setShowToast({ message: "Removed from favorites", type: "danger" });
+        }
+        setTimeout(() => setShowToast(null), 3000);
+      }
+    } catch (err) {
+      console.error("Toggle favorite error:", err);
+    } finally {
+      setTogglingFav(null);
+    }
   };
 
   const getTripDays = (trip: any) => {
@@ -167,38 +232,72 @@ function SearchComponent() {
       lng = dest.coordinates.lng;
     }
 
-    const updatedTrips = trips.map((trip) => {
-      if (String(trip.id) === tripId) {
-        const plannedActivities = trip.plannedActivities || [];
-        const newActivity = {
-          id: Date.now().toString(),
-          title: title,
-          startTime: addTime,
-          duration: addDuration,
-          dayIndex: Number(addDay),
-          lat: lat,
-          lng: lng,
-        };
-        // Saat sırasına göre diz
-        const newActs = [...plannedActivities, newActivity].sort((a, b) =>
-          (a.startTime || "24:00").localeCompare(b.startTime || "24:00"),
-        );
-        return { ...trip, plannedActivities: newActs };
-      }
-      return trip;
-    });
+    const targetTrip = trips.find((t) => String(t.id) === String(tripId));
+    if (!targetTrip) return;
 
-    setTrips(updatedTrips);
-    localStorage.setItem("travel-planner-trips", JSON.stringify(updatedTrips));
-    if (!destId.toString().startsWith("custom_")) {
-      setAddedStatus((prev) => ({ ...prev, [destId]: true }));
-      setTimeout(
-        () => setAddedStatus((prev) => ({ ...prev, [destId]: false })),
-        2000,
-      );
-    }
-    setCustomItemToAdd(null);
-    onClose();
+    const plannedActivities = targetTrip.plannedActivities || [];
+    const newActivity = {
+      id: Date.now().toString(),
+      title: title,
+      startTime: addTime,
+      duration: addDuration,
+      dayIndex: Number(addDay),
+      lat: lat,
+      lng: lng,
+    };
+
+    const updatedActivities = [...plannedActivities, newActivity].sort((a, b) =>
+      (a.startTime || "24:00").localeCompare(b.startTime || "24:00"),
+    );
+
+    const updatedTrip = {
+      ...targetTrip,
+      plannedActivities: updatedActivities,
+    };
+
+    const fetchUpdatedTrips = async () => {
+      try {
+        const stored = localStorage.getItem("travel-planner-profile");
+        const token = stored ? JSON.parse(stored).token : null;
+
+        const response = await fetch(`http://localhost:3001/api/trips/${tripId}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedTrip),
+        });
+
+        if (response.ok) {
+          // Update local state by fetching all trips again
+          const tripsRes = await fetch("http://localhost:3001/api/trips", {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (tripsRes.ok) {
+            const allTrips = await tripsRes.json();
+            setTrips(allTrips);
+          }
+
+          if (!destId.toString().startsWith("custom_")) {
+            setAddedStatus((prev) => ({ ...prev, [destId]: true }));
+            setTimeout(
+              () => setAddedStatus((prev) => ({ ...prev, [destId]: false })),
+              2000,
+            );
+          }
+          setCustomItemToAdd(null);
+          onClose();
+        } else {
+          alert("Failed to add activity to trip.");
+        }
+      } catch (err) {
+        console.error("Failed to add activity:", err);
+        alert("An error occurred while adding the activity.");
+      }
+    };
+
+    fetchUpdatedTrips();
   };
 
   const handleQuickAdd = (item: {
@@ -464,6 +563,7 @@ function SearchComponent() {
                             isIconOnly
                             radius="full"
                             size="sm"
+                            isLoading={togglingFav === String(dest.id)}
                             className={`backdrop-blur-md shadow-lg transition-colors ${
                               isFavorite
                                 ? "bg-danger text-white"
@@ -604,6 +704,27 @@ function SearchComponent() {
         onOpenChange={onOpenChange}
         onQuickAdd={handleQuickAdd}
       />
+
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-[100]"
+          >
+            <div className={`px-6 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 border-2 ${
+              showToast.type === 'success' 
+                ? 'bg-success/90 border-success-200 text-white' 
+                : 'bg-danger/90 border-danger-200 text-white'
+            }`}>
+              {showToast.type === 'success' ? <IoHeart size={20} /> : <IoHeartOutline size={20} />}
+              <span className="font-bold italic">{showToast.message}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Add Activity Modal */}
       <Modal

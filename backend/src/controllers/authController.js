@@ -7,7 +7,7 @@ const generateToken = (id, tokenVersion, rememberMe) => {
     return jwt.sign(
         { id, token_version: tokenVersion },
         process.env.JWT_SECRET,
-        { expiresIn: rememberMe ? '30d' : '1d' }
+        { expiresIn: rememberMe ? '30d' : '7d' }
     );
 };
 

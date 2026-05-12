@@ -46,10 +46,39 @@ const getDestinations = async (req, res) => {
   try {
     const [destinations] = await db.query('SELECT * FROM destinations ORDER BY created_at DESC');
     
-    // Fetch restaurants for each destination
+    // Fetch restaurants and landmarks for each destination
     const destinationsWithRestaurants = await Promise.all(destinations.map(async (dest) => {
       const [rests] = await db.query('SELECT * FROM restaurants WHERE destination_id = ?', [dest.id]);
-      return { ...dest, localRestaurants: rests };
+      const [marks] = await db.query('SELECT * FROM landmarks WHERE destination_id = ?', [dest.id]);
+      
+      // Map DB fields to Frontend Interface
+      return {
+        id: dest.id,
+        name: dest.name,
+        city: dest.city,
+        country: dest.country,
+        description: dest.description,
+        mainImageUrl: dest.main_image_url || `https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=1000&auto=format&fit=crop`, // Fallback
+        coordinates: {
+          lat: parseFloat(dest.lat) || 0,
+          lng: parseFloat(dest.lng) || 0
+        },
+        landmarks: marks.map(m => ({
+          id: m.id,
+          name: m.name,
+          type: m.type,
+          coordinates: { lat: parseFloat(m.lat) || 0, lng: parseFloat(m.lng) || 0 }
+        })),
+        localRestaurants: rests.map(r => ({
+          id: r.id,
+          name: r.name,
+          cuisine: r.cuisine,
+          coordinates: { lat: parseFloat(r.lat) || 0, lng: parseFloat(r.lng) || 0 }
+        })),
+        averageRating: parseFloat(dest.rating) || 4.5,
+        estimatedBudget: parseFloat(dest.estimated_cost) || 0,
+        moods: dest.moods ? (typeof dest.moods === 'string' ? JSON.parse(dest.moods) : dest.moods) : ["Cultural", "History"]
+      };
     }));
 
     res.json(destinationsWithRestaurants);

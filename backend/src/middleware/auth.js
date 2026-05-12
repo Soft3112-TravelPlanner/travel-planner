@@ -39,6 +39,9 @@ const authMiddleware = async (req, res, next) => {
         req.token = token; // Store token for logout
         next();
     } catch (error) {
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Oturum süresi doldu, lütfen tekrar giriş yapın', code: 'TOKEN_EXPIRED' });
+        }
         console.error('Auth middleware error:', error);
         res.status(401).json({ message: 'Token is not valid' });
     }

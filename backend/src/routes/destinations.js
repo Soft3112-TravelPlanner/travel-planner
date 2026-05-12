@@ -3,11 +3,9 @@ const router = express.Router();
 const ctrl = require('../controllers/destinationController');
 const auth = require('../middleware/auth');
 
-router.use(auth);
-
-router.post('/', ctrl.addDestination);
 router.get('/', ctrl.getDestinations);
-router.put('/:id', ctrl.updateDestination);
-router.delete('/:id', ctrl.deleteDestination);
+router.post('/', auth, ctrl.addDestination);
+router.put('/:id', auth, ctrl.updateDestination);
+router.delete('/:id', auth, ctrl.deleteDestination);
 
 module.exports = router;
